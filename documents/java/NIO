@@ -1,0 +1,1 @@
+`FileChannel inChannel = FileChannel.open(Paths.get("D:\\迅雷下载\\FSDSS-021AV.mp4"), StandardOpenOption.READ);`
