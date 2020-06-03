@@ -1,6 +1,6 @@
 ### Java的NIO
 
-```java
+```
 @Test
 public void test3() throws IOException {
         // 获取一个输入通道
