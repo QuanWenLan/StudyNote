@@ -16,3 +16,8 @@ public void test3() throws IOException {
 }
 ```
 
+#### 通道的一些实现类 
+
+![image-20200603222114126](media/images/image-20200603222114126.png)
+
+![image-20200603222241702](media/images/image-20200603222241702.png)
