@@ -23,4 +23,3 @@ public void test3() throws IOException {
 ![image-20200603222241702](./media/images/image-20200603222241702.png)
 
 ![image-20200603230234314](./media/images/image-20200603230234314.png)
-![image](https://github.com/QuanWenLan/StudyNote/blob/master/documents/java/media/images/1.png)
