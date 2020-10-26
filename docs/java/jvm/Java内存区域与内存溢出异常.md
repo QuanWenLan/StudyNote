@@ -47,7 +47,7 @@
 
 　　**JDK1.7 及之后版本的 JVM 已经将运行时常量池从方法区中移了出来，在 Java 堆（Heap）中开辟了一块区域存放运行时常量池**。
 　　![常量池包含内容](media/images/常量池包含内容.jpg)
-　　参考---[图片链接](https://blog.csdn.net/wangbiao007/article/details/78545189)
+　　参考---[常量池中包含的内容](https://blog.csdn.net/wangbiao007/article/details/78545189)
 
 #### 2.7  直接内存
 　　**直接内存并不是虚拟机运行时数据区的一部分，也不是虚拟机规范中定义的内存区域，但是这部分内存也被频繁地使用。而且也可能导致 OutOfMemoryError 错误出现**。
