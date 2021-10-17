@@ -104,9 +104,11 @@ number_of_tmp_files 表示的是，排序过程中使用的临时文件数。你
 
 **examined_rows** ：我们的示例表中有 4000 条满足 city=“杭州” 的记录，所以你看到 examined_rows = 4000，表示参与排序的行数是 4000 行。 
 
-**sort_mode**：sort_mode 里面的 packed_additional_fields 的意思是，排序过程对字符串做了 “紧凑” 处理。即使 name 字段的定义是 varchar(16)，在排序过程中还是要按照实际长度来分配空间的。  
+**sort_mode**：sort_mode 里面的 `packed_additional_fields` 的意思是，排序过程对字符串做了 “紧凑” 处理。即使 name 字段的定义是 varchar(16)，在排序过程中还是要按照实际长度来分配空间的。  
 
 **同时，最后一个查询语句 select @b-@a 的返回结果是 4000，表示整个执行过程只扫描了 4000 行。**  
+
+##### internal_tmp_disk_storage_engine 控制磁盘临时表
 
 这里需要注意的是，为了避免对结论造成干扰，我把 `internal_tmp_disk_storage_engine` 设置成 MyISAM。否则，select @b-@a 的结果会显示为 4001。  
 
@@ -166,8 +168,8 @@ set max_length_for_sort_data = 16;
 
 从 OPTIMIZER_TRACE 的结果中，你还能看到另外两个信息也变了。  
 
-- sort_mode 变成了 <sort_key, rowid>，表示参与排序的只有 name 和 id 这两个字段。
-- number_of_tmp_files 变成 10 了，是因为这时候参与排序的行数虽然仍然是 4000 行，但是每一行都变小了，因此需要排序的总数据量就变小了，需要的临时文件也相应地变少了。
+- sort_mode 变成了 `<sort_key, rowid>`，表示参与排序的**只有 name 和 id 这两个字段**。
+- number_of_tmp_files 变成 10 了，是因为这时候参与排序的行数虽然仍然是 4000 行，**但是每一行都变小了，因此需要排序的总数据量就变小了，需要的临时文件也相应地变少了**。
 
 #### 全字段排序 VS rowid 排序  
 
@@ -208,7 +210,7 @@ alter table t add index city_user(city, name);
 
 ![image-20210809154315039](media/images/image-20210809154315039.png)
 
-可以看到，这个查询过程不需要临时表，也不需要排序。接下来，我们用 explain 的结果来印证一下。  
+可以看到，**这个查询过程不需要临时表，也不需要排序**。接下来，我们用 explain 的结果来印证一下。  
 
 ![image-20210809154340690](media/images/image-20210809154340690.png)
 
@@ -269,6 +271,32 @@ mysql> select * from t where city in ('杭州',"苏州") order by name limit 100
 > （2）分开查询，使用 union
 >
 > （3）不知道，（或许可以查出来，代码里面分页）
+
+参考答案： 
+
+> 虽然有 (city,name) 联合索引，对于单个 city 内部，name 是递增的。但是由于这条 SQL 语句不是要单独地查一个 city 的值，而是同时查了"杭州"和" 苏州 "两个城市，因此所有满足条件的 name 就不是递增的了。也就是说，这条 SQL 语句需要排序。
+>
+> 这里，我们要用到 (city,name) 联合索引的特性，把这一条语句拆成两条语句，执行流程如下：
+>
+> 1. 执行 select * from t where city=“杭州” order by name limit 100; 这个语句是不需要排序的，客户端用一个长度为 100 的内存数组 A 保存结果。
+> 2. 执行 select * from t where city=“苏州” order by name limit 100; 用相同的方法，假设结果被存进了内存数组 B。
+> 3. 现在 A 和 B 是两个有序数组，然后你可以用归并排序的思想，得到 name 最小的前 100 值，就是我们需要的结果了。
+>
+> 如果把这条 SQL 语句里“limit 100”改成“limit 10000,100”的话，处理方式其实也差不多，即：要把上面的两条语句改成写：
+>
+> select * from t where city="杭州" order by name limit 10100; 
+>
+>  select * from t where city="苏州" order by name limit 10100。
+>
+> 这时候数据量较大，可以同时起两个连接一行行读结果，用归并排序算法拿到这两个结果集里，按顺序取第 10001~10100 的 name 值，就是需要的结果了。
+>
+> 当然这个方案有一个明显的损失，就是从数据库返回给客户端的数据量变大了。所以，如果数据的单行比较大的话，可以考虑把这两条 SQL 语句改成下面这种写法: 
+>
+> select id,name from t where city="杭州" order by name limit 10100; 
+>
+> select id,name from t where city="苏州" order by name limit 10100。
+>
+> 然后，再用归并排序的方法取得按 name 顺序第 10001~10100 的 name、id 的值，然后拿着这 100 个 id 到数据库中去查出所有记录。
 
 #### 一些评论中总结的好的内容  
 
