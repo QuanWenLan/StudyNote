@@ -146,7 +146,6 @@ MySQL 在真正开始执行语句之前，并不能精确地知道满足这个�
 
 > 分析：参考MySQL官网：https://dev.mysql.com/doc/refman/5.7/en/explain-output.html
 >
-> 
 
 既然是统计信息不对，那就修正，**analyze table t 命令，可以用来重新统计索引信息。**
 
