@@ -59,7 +59,21 @@
     }
 ```
 
+可以对单独的一个组件，例如：textField 进行设置属性：
 
+```xml
+<textField evaluationTime="Group" evaluationGroup="productGroup" isBlankWhenNull="true">
+					<reportElement x="0" y="0" width="80" height="15" uuid="4c9dec3a-58b7-457d-9812-351b61d3212d">
+						<property name="com.jaspersoft.studio.spreadsheet.connectionID" value="cedc4d6f-d090-4ec4-9ec0-bb29d16ad0b6"/>
+                        <!--设置这个textField的一些属性，界面上也可以进设置-->
+						<property name="net.sf.jasperreports.print.keep.full.text" value="true"/>
+					</reportElement>
+					<textElement verticalAlignment="Middle">
+						<font fontName="ARIALUNI"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{productId}]]></textFieldExpression>
+				</textField>
+```
 
 ##### 2.当detail没有数据的时候，使用对应的字段进行加减操作的时候   
 
