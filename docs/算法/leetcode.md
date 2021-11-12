@@ -32,7 +32,7 @@
 
 ----
 
-解题三部曲
+#### 解题三部曲
 
 ##### **1. 看懂题目**
 
@@ -82,4 +82,73 @@
 > 如： https://leetcode-cn.com/problems/path-sum/comments/ 
 >
 > https://mp.weixin.qq.com/s/MH2gbLvzQ91jHPKqiub0Nw
+
+---
+
+#### 写递归算法的秘诀  
+
+https://labuladong.gitee.io/algo/1/12/
+
+写递归算法的关键是要明确函数的【定义】是什么，然后相信这个定义，利用这个定义推到最终结果，绝不要跳入递归的细节。（跳入了就出不来了。。。。）  
+
+用一个具体的例子来说，比如说让你计算一颗二叉树共有几个节点： 
+
+```java
+// 定义：count(root) 返回以 root 为根的树有多少节点
+int count(TreeNode root) {
+    // base case
+    if (root == null) return 0;
+    // 自己加上子树的节点数就是整棵树的节点数
+    return 1 + count(root.left) + count(root.right);
+}
+```
+
+这个问题非常简单，大家应该都会写这段代码，`root` 本身就是一个节点，加上左右子树的节点数就是以 `root` 为根的树的节点总数。
+
+左右子树的节点数怎么算？其实就是计算根为 `root.left` 和 `root.right` 两棵树的节点数呗，按照定义，递归调用 `count` 函数即可算出来。
+
+---
+
+**写树相关的算法，简单说就是，先搞清楚当前** **`root`** **节点「该做什么」以及「什么时候做」，然后根据函数定义递归调用子节点**，递归调用会让孩子节点做相同的事情。
+
+所谓**「该做什么」就是让你想清楚写什么代码能够实现题目想要的效果**，**所谓「什么时候做」，就是让你思考这段代码到底应该写在前序、中序还是后序遍历的代码位置上**。   
+
+> 二叉树题目的一个难点就是，如何把题目的要求细化成每个节点需要做的事情
+
+
+
+#### 二分查找
+
+##### 题目编号
+
+- [704. 二分查找](https://leetcode-cn.com/problems/binary-search/) （已写）
+- [278. 第一个错误的版本](https://leetcode-cn.com/problems/first-bad-version/) （已写）
+- [35. 搜索插入位置](https://leetcode-cn.com/problems/search-insert-position/) （已写）
+
+
+
+
+
+
+
+
+
+#### 双指针
+
+- [977. 有序数组的平方](https://leetcode-cn.com/problems/squares-of-a-sorted-array/)  （已写）数组
+- [189. 旋转数组](https://leetcode-cn.com/problems/rotate-array/) （已写）数组
+- [283. 移动零](https://leetcode-cn.com/problems/move-zeroes/) （已写）数组
+- [167. 两数之和 2-输入有序数组](https://leetcode-cn.com/problems/two-sum-ii-input-array-is-sorted/) （已写）数组
+- [344. 反转字符串](https://leetcode-cn.com/problems/reverse-string/) （已写） 数组
+- [557. 反转字符串中的单词 III](https://leetcode-cn.com/problems/reverse-words-in-a-string-iii/) （已写）数组
+- [876. 链表的中间结点](https://leetcode-cn.com/problems/middle-of-the-linked-list/) （已写）链表
+- [19. 删除链表的倒数第 N 个节点](https://leetcode-cn.com/problems/remove-nth-node-from-end-of-list/)  链表
+
+
+
+
+
+
+
+
 
