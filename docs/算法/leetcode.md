@@ -142,7 +142,9 @@ int count(TreeNode root) {
 - [344. 反转字符串](https://leetcode-cn.com/problems/reverse-string/) （已写） 数组
 - [557. 反转字符串中的单词 III](https://leetcode-cn.com/problems/reverse-words-in-a-string-iii/) （已写）数组
 - [876. 链表的中间结点](https://leetcode-cn.com/problems/middle-of-the-linked-list/) （已写）链表
-- [19. 删除链表的倒数第 N 个节点](https://leetcode-cn.com/problems/remove-nth-node-from-end-of-list/)  链表
+- [19. 删除链表的倒数第 N 个节点](https://leetcode-cn.com/problems/remove-nth-node-from-end-of-list/)  （已写）链表 
+- [11. 盛最多水的容器](https://leetcode-cn.com/problems/container-with-most-water) （已写） 数组
+- [15. 三数之和](https://leetcode-cn.com/problems/3sum) （已写） 数组
 
 
 
