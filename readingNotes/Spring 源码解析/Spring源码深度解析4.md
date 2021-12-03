@@ -601,7 +601,7 @@ public static boolean canApply(Pointcut pc, Class<?> targetClass, boolean hasInt
    if (methodMatcher instanceof IntroductionAwareMethodMatcher) {
       introductionAwareMethodMatcher = (IntroductionAwareMethodMatcher) methodMatcher;
    }
-// 这里的 targetClass 是 InfrastructureAdvisorAutoProxyCreator
+// 这里的 targetClass 是 UserServiceImpl
    Set<Class<?>> classes = new LinkedHashSet<>();
    if (!Proxy.isProxyClass(targetClass)) {
       classes.add(ClassUtils.getUserClass(targetClass));
@@ -976,6 +976,8 @@ UserService 使用了使用了注解 `@Transactional(propagation = Propagation.R
 ---
 
 ### 3 事务增强器
+
+当调用方法的时候，获取的到 bean 是spring使用 JDK代理创建的，所以会调用 JdkDynamicAopProxy 类的 invoke 方法。这里面有些判断会让流程走到下面这个类中。
 
 **TransactionInterceptor支撑着整个事务功能的架构**，逻辑还是相对复杂的，那么现在我们切入正题来分析此拦截器是如何实现事务特性的。
 

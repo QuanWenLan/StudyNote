@@ -1733,7 +1733,7 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
 
 
          // Guarantee initialization of beans that the current bean depends on.
-如果存在依赖则需要递归实例化依赖的bean
+// 如果存在依赖则需要递归实例化依赖的bean
          String[] dependsOn = mbd.getDependsOn();
          if (dependsOn != null) {
             for (String dep : dependsOn) {
@@ -1976,14 +1976,15 @@ protected Object getSingleton(String beanName, boolean allowEarlyReference) {
       synchronized (this.singletonObjects) { // 如果为空，则锁定全局变量并进行处理
          singletonObject = this.earlySingletonObjects.get(beanName); // 如果此 bean 正在加载则不处理  二级缓存
          if (singletonObject == null && allowEarlyReference) {
-// 当某些方法需要提前初始化的时候则会调用 addSingletonFactory 方法将对应的 ObjectFactory 初始化策略存储在 singletonFactories 中
-            ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName); 三级缓存
+// 当某些方法需要提前初始化的时候则会调用 addSingletonFactory 方法将对应的 ObjectFactory 初始化策略存储在 singletonFactories 中。 三级缓存
+            ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);  // 三级缓存
+            
             if (singletonFactory != null) {
 // 调用预先设定的 getObejct() 方法，
                singletonObject = singletonFactory.getObject();
 // 记录在缓存中，earlySingletonObjects 和 singletonFactories 互斥
-               this.earlySingletonObjects.put(beanName, singletonObject);
-               this.singletonFactories.remove(beanName);
+               this.earlySingletonObjects.put(beanName, singletonObject); // 添加二级缓存
+               this.singletonFactories.remove(beanName); // 移除三级缓存
             }
          }
       }
@@ -2203,7 +2204,7 @@ if (bean != null) {
 当经过前置处理后返回的结果如果不为空，**那么会直接略过后续的Bean的创建而直接返回结果**。这一特性虽然很容易被忽略，但是却起着至关重要的作用，*我们熟知的AOP功能就是基于这里的判断的*。
 
 ```java
-应用实例化前的后处理器，解决指定 bean 是否有实例化前的快捷方式。 AbstractAutowireCapableBeanFactory 
+// 应用实例化前的后处理器，解决指定 bean 是否有实例化前的快捷方式。 AbstractAutowireCapableBeanFactory 
 protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition mbd) {
    Object bean = null;
 // 如果还没有被解析
