@@ -2883,7 +2883,9 @@ protected Object doCreateBean(final String beanName, final RootBeanDefinition mb
 
 （1）Spring容器创建单例“testA”bean，首先根据无参构造器创建bean，**并暴露一个“ObjectFactory”用于返回一个提前暴露一个创建中的bean，并将“testA”标识符放到“当前创建bean池”**，然后进行setter注入“testB”。*这里是推断一个合适的初始化 bean 的方法，调用了无参构造，如果有具体的构造会调用具体的有参数的构造方法创建 bean*
 
-（2）Spring容器创建单例“testB”bean，首先根据无参构造器创建bean，并**暴露一个“ObjectFactory”用于返回一个提前暴露一个创建中的bean，并将“testB”标识符放到“当前创建bean池”**，然后进行setter注入“testC”。（3）Spring容器创建单例“testC”bean，首先根据无参构造器创建bean，并**暴露一个“ObjectFactory”用于返回一个提前暴露一个创建中的bean，并将“testC”标识符放到“当前创建bean池”**，然后进行setter注入“testA”。**进行注入“testA”时由于提前暴露了“ObjectFactory”工厂，从而使用它返回提前暴露一个创建中的bean**。
+（2）Spring容器创建单例“testB”bean，首先根据无参构造器创建bean，并**暴露一个“ObjectFactory”用于返回一个提前暴露一个创建中的bean，并将“testB”标识符放到“当前创建bean池”**，然后进行setter注入“testC”。
+
+（3）Spring容器创建单例“testC”bean，首先根据无参构造器创建bean，并**暴露一个“ObjectFactory”用于返回一个提前暴露一个创建中的bean，并将“testC”标识符放到“当前创建bean池”**，然后进行setter注入“testA”。**进行注入“testA”时由于提前暴露了“ObjectFactory”工厂，从而使用它返回提前暴露一个创建中的bean**。
 
 （4）最后在依赖注入“testB”和“testA”，完成setter注入。
 
