@@ -1,4 +1,4 @@
-#  join语句怎么优化？
+#  35 join语句怎么优化？
 
 join 语句得两种算法，分别是 Index Nested-Loop Join(NLJ) 和 Block Nested-Loop Join(BNL)。
 

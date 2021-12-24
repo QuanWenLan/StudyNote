@@ -244,7 +244,6 @@ alter table t add index city_user_age(city, name, age);
 
 > 参考 MySQL 官网，https://dev.mysql.com/doc/refman/5.7/en/explain-output.html#explain_extra  关于 extra 字段中内容的解释
 >
-> 
 
 当然，这里并不是说要为了每个查询能用上覆盖索引，就要把语句中涉及的字段都建上联合索引，毕竟索引还是有维护代价的。这是一个需要权衡的决定。
 
