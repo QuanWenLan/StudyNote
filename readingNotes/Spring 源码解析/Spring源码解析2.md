@@ -927,7 +927,7 @@ public void addBeanPostProcessor(BeanPostProcessor beanPostProcessor) {
 
 Spring 国际化 
 
-###### **6.6.4 初始化 ApplicationEventMulticaster**  
+###### 6.6.4 初始化 ApplicationEventMulticaster  事件广播器
 
 在讲解Spring的时间传播器之前，我们还是先来看一下Spring的事件监听的简单用法。 
 
@@ -1285,9 +1285,30 @@ public void preInstantiateSingletons() throws BeansException {
 }
 ```
 
-##### **6.8 finishRefresh**  
+##### **6.8 finishRefresh**  生命周期
 
 在Spring中还提供了**Lifecycle**接口，Lifecycle中包含start/stop方法，实现此接口后Spring会保证在启动的时候调用其start方法开始生命周期，并在Spring关闭的时候调用stop方法来结束生命周期，通常用来配置后台程序，在启动后一直运行（如对MQ进行轮询等）。而ApplicationContext的初始化最后正是保证了这一功能的实现。 
+
+**Lifecycle**
+
+```java 
+public interface Lifecycle {
+        /**
+         * 生命周期开始
+         */
+        void start();
+        /**
+         * 生命周期结束
+         */
+        void stop();
+        /**
+         * 判断当前bean是否是开始状态
+         */
+        boolean isRunning();
+}
+```
+
+
 
 ```java 
 /**
@@ -1322,6 +1343,55 @@ protected void finishRefresh() {
 当ApplicationContext启动或停止时，它会通过LifecycleProcessor来与所有声明的bean的周期做状态更新，而在LifecycleProcessor的使用前首先需要初始化。调用 initLifecycleProcessor 方法
 
 ```java 
+public interface LifecycleProcessor extends Lifecycle {
+
+    /**
+     * 刷新容器,自动开始生命周期
+     */
+    void onRefresh();
+
+    /**
+     * 关闭容器,自动结束生命周期
+     */
+    void onClose();
+
+}
+```
+
+LifeCycle 的接口的子接口 LifecycleProcessor。
+
+Spring 容器是有生命周期的，因为 AbstractApplicationContext 实现了接口 ConfigurableApplicationContext，而该结构继承自 LifeCycle 接口，实现代码如下：
+
+```java
+LifecycleProcessor getLifecycleProcessor() throws IllegalStateException {
+        if (this.lifecycleProcessor == null) {
+            throw new IllegalStateException("LifecycleProcessor not initialized - " +
+                    "call 'refresh' before invoking lifecycle methods via the context: " + this);
+        }
+        return this.lifecycleProcessor;
+    }
+// 实现的方法，
+@Override
+	public void start() {
+		getLifecycleProcessor().start();
+		publishEvent(new ContextStartedEvent(this));
+	}
+
+	@Override
+	public void stop() {
+		getLifecycleProcessor().stop();
+		publishEvent(new ContextStoppedEvent(this));
+	}
+
+	@Override
+	public boolean isRunning() {
+		return (this.lifecycleProcessor != null && this.lifecycleProcessor.isRunning());
+	}
+```
+
+而调用 finishRefresh() 方法后，里面调用的是  initLifecycleProcessor，默认不指定的话是使用的默认 DefaultLifecycleProcessor，否则从 ConfigurableListableBeanFactory 中获取 name 为 lifecycleProcessor 的bean。
+
+```java 
 /**
 * Initialize the LifecycleProcessor.
 * Uses DefaultLifecycleProcessor if none defined in the context.
@@ -1348,6 +1418,137 @@ protected void initLifecycleProcessor() {
    }
 }
 ```
+
+继续查看 DefaultLifecycleProcessor 里实现的 start，stop，isRunning 方法。
+
+```java 
+/**
+    * 执行startBeans(false)方法开启所有实现了Lifecycle接口的bean的生命周期
+     */
+    @Override
+    public void start() {
+        startBeans(false);
+        this.running = true;
+    }
+
+    /**
+     * 执行stopBeans()方法关闭所有实现了Lifecycle接口的bean的生命周期
+     */
+    @Override
+    public void stop() {
+        stopBeans();
+        this.running = false;
+    }
+
+    @Override
+    public void onRefresh() {
+        startBeans(true);
+        this.running = true;
+    }
+
+    @Override
+    public void onClose() {
+        stopBeans();
+        this.running = false;
+    }
+
+    @Override
+    public boolean isRunning() {
+        return this.running;
+    }
+
+```
+
+startBeans 源码分析：start 方法是 false。
+
+```java 
+/** 开始bean的生命周期
+     * @param autoStartupOnly:自动开启还是手动开启
+     * */
+    private void startBeans(boolean autoStartupOnly) {
+        /**
+         * 1.调用getLifecycleBeans方法获取所有实现了Lifecycle接口的bean
+         *  实现逻辑就是调用BeanFactory的getBeanNamesForType(LifeCycle.class)方法来获取所有bean
+         * */
+        Map<String, Lifecycle> lifecycleBeans = getLifecycleBeans();
+        Map<Integer, LifecycleGroup> phases = new HashMap<>();
+        /**
+         * 2.遍历所有Lifecycle的bean,按不同阶段进行分组,同组的封装为 LifecycleGroup对象
+         * */
+        lifecycleBeans.forEach((beanName, bean) -> {
+            if (!autoStartupOnly || (bean instanceof SmartLifecycle && ((SmartLifecycle) bean).isAutoStartup())) {
+                int phase = getPhase(bean);
+                LifecycleGroup group = phases.get(phase);
+                if (group == null) {
+                    group = new LifecycleGroup(phase, this.timeoutPerShutdownPhase, lifecycleBeans, autoStartupOnly);
+                    phases.put(phase, group);
+                }
+                group.add(beanName, bean);
+            }
+        });
+        /**
+         * 3.遍历所有LifecycleGroup,调用LifecycleGroup的start方法
+         * */
+        if (!phases.isEmpty()) {
+            List<Integer> keys = new ArrayList<>(phases.keySet());
+            Collections.sort(keys);
+            for (Integer key : keys) {
+                phases.get(key).start();
+            }
+        }
+    }
+```
+
+LifecycleGroup对象的start方法源码如下：
+
+```java 
+public void start() {
+    if (this.members.isEmpty()) {
+        return;
+    }
+    if (logger.isDebugEnabled()) {
+        logger.debug("Starting beans in phase " + this.phase);
+    }
+    Collections.sort(this.members);
+    for (LifecycleGroupMember member : this.members) {
+        doStart(this.lifecycleBeans, member.name, this.autoStartupOnly);
+    }
+}
+```
+
+这里的 doStart 才是回到了 DefaultLifecycleProcessor 类里面：
+
+```java 
+private void doStart(Map<String, ? extends Lifecycle> lifecycleBeans, String beanName, boolean autoStartupOnly) {
+        /**
+         * 1.根据beanName从集合中获取Lifecycle对象并移除
+         * */
+        Lifecycle bean = lifecycleBeans.remove(beanName);
+        if (bean != null && bean != this) {
+            /**
+             * 2.如果有依赖,则先开启依赖bean的生命周期
+             * */
+            String[] dependenciesForBean = getBeanFactory().getDependenciesForBean(beanName);
+            for (String dependency : dependenciesForBean) {
+                doStart(lifecycleBeans, dependency, autoStartupOnly);
+            }
+            if (!bean.isRunning() &&
+                    (!autoStartupOnly || !(bean instanceof SmartLifecycle) || ((SmartLifecycle) bean).isAutoStartup())) {
+                try {
+                    /**
+                     * 3.调用Lifecycle对象的start方法开启生命周期
+                     * */
+                    bean.start();
+                }
+                catch (Throwable ex) {
+                    throw new ApplicationContextException("Failed to start bean '" + beanName + "'", ex);
+                }
+            }
+        }
+    }
+```
+
+stopBeans的整体逻辑和startBeans完全一样，只不过一个是执行LifeCycle的start方法一个是执行LifeCycle的stop方法。
 
 ###### 2 onRefresh 
 
@@ -1445,6 +1646,30 @@ Spring 2.0采用**@AspectJ注解对POJO进行标注**，从而**定义一个包�
 
 Spring 2.0可以将这个切面织入到匹配的目标Bean中。**@AspectJ注解使用AspectJ切点表达式语法进行切点定义，可以通过切点函数、运算符、通配符等高级功能进行切点定义**，拥有强大的连接点描述能力。我们先来直观地浏览一下Spring中的AOP实现。
 
+具体一点的也可以参考博客：[Spring AOP解析(1)--AOP的简介及使用 - Lucky帅小武 - 博客园 (cnblogs.com)](https://www.cnblogs.com/jackion5/p/13358657.html) 
+
+[Spring AOP解析(2)--AOP的实现原理及源码解析 - Lucky帅小武 - 博客园 (cnblogs.com)](https://www.cnblogs.com/jackion5/p/13369376.html) 
+
+> 前言：软件开发的目的是为了解决各种需求，而需求又分成业务需求和系统需求，比如有一个登录功能，那么用户输入密码之后登录就是业务需求，而在用户登录前后分别打印一行日志，这个就是系统需求；又或者用户访问系统的网页获取数据这个是业务需求，而用户每一次访问的时候，都需要进行一次用户权限校验，这个就是系统需求。可以看出业务需求是用户感知的，而系统需求是用户无感知的。业务需求和实现代码的对应关系往往是一一对应的关系，比如登录需求，就需要开发一个登录的接口；注册需求就需要开发一个注册接口。而系统需求往往是一对多的关系，比如打印用户操作日志功能，用户注册时需要打印日志，用户登录时还是需要打印日志。而如果在实现业务代码的时候，将系统需求的代码手动写入进去，那么就会导致系统需求的代码需要在每个业务代码中都需要加入，很显然就会导致很多的问题，比如维护比较困难，一旦需要改系统需求的代码，就需要将所有业务代码中的系统需求代码全部改一遍。如果我们将系统需求的实现代码抽离出来，由系统自动将系统需求的代码插入到业务代码中，很显然就解决了这个问题。而Spring的AOP思想就是这样的设计思想
+>
+> AOP，全称是Aspect Oriented Programming，也叫做面向方面编程，或者叫面向切面编程。比如日志打印、权限校验等系统需求就像一把刀一样，横切在各个业务功能模块之上，在AOP中这把刀就叫做切面。
+>
+> ###### 1.1、AOP基本概念
+>
+> joinPoint（连接点、切入点）：表示可以将横切的逻辑织入的地方，比如方法调用、方法执行、属性设置等
+>
+> pointCut（切点）：通过表达式定义的一组joinPoint的集合，比如定义一个pointCut为"com.lucky.test包下的所有Service中的add方法"，这样就可以定义哪些具体的joinPoint需要织入横切逻辑
+>
+> Advice（增强）：横切的具体逻辑，比如日志打印，权限校验等这些系统需求就需要在业务代码上增强功能，这些具体的横切逻辑就叫做Advice
+>
+> aspect（切面）：切点和增强组合一起就叫做切面，一个切面就定义了在哪些连接点需要织入什么横切逻辑
+>
+> target（目标）：需要织入切面的具体目标对象，比如在UserService类的addUser方法前面织入打印日志逻辑，那么UserService这个类就是目标对象
+>
+> weaving（织入）：将横切逻辑添加到目标对象的过程叫做织入
+>
+> 用这些概念造句总结就是：**在target的joinPoint处weaving一个或多个以Advice和pointCut组成的Aspect**
+
 ##### **7.1 动态 AOP 使用示例**  
 
 ###### **（1）创建用于拦截的 bean** 
@@ -1478,7 +1703,7 @@ public class TestBean {
 
 ###### （2）创建 Advisor
 
-Spring中摒弃了最原始的繁杂配置方式而采用 @AspectJ注解对POJO进行标注，使AOP的工作大大简化，例如，在AspectJTest类中，我们要做的就是在所有类的test方法执行前在控制台中打印beforeTest，而在所有类的test方法执行后打印afterTest，同时又使用环绕的方式在所有类的方法执行前后再次分别打印before1和after1。（我自己的版本：5.2.4）
+Spring中摒弃了最原始的繁杂配置方式而采用 @AspectJ注解对POJO进行标注，使AOP的工作大大简化，例如，在AspectJTest类中，我们要做的就是**在所有类的test方法执行前在控制台中打印beforeTest，而在所有类的test方法执行后打印afterTest，同时又使用环绕的方式在所有类的方法执行前后再次分别打印before1和after1**。（我自己的版本：5.2.4）
 
 ```java 
 package springtest.aop;
@@ -1498,7 +1723,7 @@ import org.aspectj.lang.annotation.*;
 * com.sample.service.impl AOP所切的服务的包名，即，我们的业务部分
 * 包名后面的 ..    表示当前包及子包
 * 第二个 *           表示类名,*即所有类。 此处可以自定义，
-* .*(..)          表示任何方法名，括号表示参数，两个点表示任何参数类型
+* .*(..)          表示任何方法名，括号表示参数，两个点表示任何参数类型，test后如果有 * 则表示以test开头的方法
 **/
 @Aspect
 public class AspectJTest {
@@ -1792,7 +2017,69 @@ public class AServiceImpl implements AService {
 
 在类的层级中，我们看到AnnotationAwareAspectJAutoProxyCreator实现了BeanPostProcessor接口，而实现BeanPostProcessor后，当Spring加载这个Bean时会在实例化前调用其**postProcessAfterInitialization**方法，而我们对于AOP逻辑的分析也由此开始。  
 
-在父类AbstractAutoProxyCreator的postProcessAfterInitialization中代码如下： 
+执行初始化之前，先执行**postProcessBeforeInstantiation**方法org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation
+
+/** 目标对象源bean集合*/
+    private final Set<String> targetSourcedBeans = Collections.newSetFromMap(new ConcurrentHashMap<>(16));
+
+```java
+/** 提前曝光的代理引用集合*/
+private final Map<Object, Object> earlyProxyReferences = new ConcurrentHashMap<>(16);
+
+/** 代理类型集合*/
+private final Map<Object, Class<?>> proxyTypes = new ConcurrentHashMap<>(16);
+
+/** 增强bean集合,Advice、PointCut、Advisor、AopInfrastructureBean等类的bean会加入该集合*/
+private final Map<Object, Boolean> advisedBeans = new ConcurrentHashMap<>(256);
+
+@Override
+public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName) {
+    /**
+     * 1.根据beanClass和beanName获取缓存的key
+     * 如果是工厂bean则key = &beanName
+     * 如果不是工厂bean则key = beanName
+     * */
+    Object cacheKey = getCacheKey(beanClass, beanName);
+
+    /**
+     * 2.如果targetSourcedBeans中不包含当前bean则进行判断
+     * */
+    if (!StringUtils.hasLength(beanName) || !this.targetSourcedBeans.contains(beanName)) {
+        if (this.advisedBeans.containsKey(cacheKey)) {
+            return null;
+        }
+        /**
+         * 3.isInfrastructureClass方法是判断当前beanClass是否是AOP增强相关的接口
+         *  判断beanClass是否是Advice、PointCut、Advisor、AopInfrastructureBean等接口的实现类
+         *  如果是则加入到advisedBeans集合中
+         * */
+        if (isInfrastructureClass(beanClass) || shouldSkip(beanClass, beanName)) {
+            this.advisedBeans.put(cacheKey, Boolean.FALSE);
+            return null;
+        }
+    }
+
+    /**
+     * 4.根据beanClass和beanName获取自定义的TargetSource实例,如果存在的话则创建代理,如果不存在则直接跳过
+     * TargetSource实例相当于就是目标对象bean的封装实例
+     * */
+    TargetSource targetSource = getCustomTargetSource(beanClass, beanName);
+    if (targetSource != null) {
+        if (StringUtils.hasLength(beanName)) {
+            this.targetSourcedBeans.add(beanName);
+        }
+        /** 4.1.获取当前bean所有的增强数组  */
+        Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(beanClass, beanName, targetSource);
+        /** 4.2.根据增强数组为目标对象创建代理对象 */
+        Object proxy = createProxy(beanClass, beanName, specificInterceptors, targetSource);
+        this.proxyTypes.put(cacheKey, proxy.getClass());
+        /** 4.3.返回代理bean*/
+        return proxy;
+    }
+    return null;
+}
+```
+**核心步骤**，在父类AbstractAutoProxyCreator的**postProcessAfterInitialization**中代码如下： 
 
 ```java 
 /**
@@ -2444,6 +2731,8 @@ private Advisor getDeclareParentsAdvisor(Field introductionField) {
 
 前面的函数中已经完成了所有增强器的解析，但是对于所有增强器来讲，并不一定都适用于当前的Bean，还要挑取出适合的增强器，也就是满足我们配置的通配符的增强器。
 
+**引介增强：引介增强是一种特殊的增强，其它的增强是方法级别的增强，即只能在方法前或方法后添加增强。而引介增强则不是添加到方法上的增强， 而是添加到类方法级别的增强，即可以为目标类动态实现某个接口，或者动态添加某些方法**。参考博文：[spring学习笔记(14)引介增强详解：定时器实例：无侵入式动态增强类功能_jeanheo的博客-CSDN博客_引介增强](https://blog.csdn.net/qwe6112071/article/details/50962613)   
+
 具体实现在**findAdvisorsThatCanApply**中。
 
 **org.springframework.aop.framework.autoproxy.AbstractAdvisorAutoProxyCreator#findEligibleAdvisors**  
@@ -2723,12 +3012,17 @@ public class DefaultAopProxyFactory implements AopProxyFactory, Serializable {
             throw new AopConfigException("TargetSource cannot determine target class: " +
                   "Either an interface or a target is required for proxy creation.");
          }
+           /** 如果目标对象是一个接口,则创建JDK动态代理对象 */
          if (targetClass.isInterface() || Proxy.isProxyClass(targetClass)) {
             return new JdkDynamicAopProxy(config);
          }
+          /**
+             * 如果目标对象不是一个接口,则创建 CGLIB代理对象
+             * */
          return new ObjenesisCglibAopProxy(config);
       }
       else {
+          /** 创建 JDK动态代理对象 */
          return new JdkDynamicAopProxy(config);
       }
    }
@@ -2766,8 +3060,6 @@ JDK动态代理和CGLIB字节码生成的区别？
 
 - **JDK动态代理只能对实现了接口的类生成代理，而不能针对类**。
 - **CGLIB是针对类实现代理，主要是对指定的类生成一个子类，覆盖其中的方法，因为是继承，所以该类或方法最好不要声明成final**。
-
-
 
 如何强制使用CGLIB实现AOP？
 

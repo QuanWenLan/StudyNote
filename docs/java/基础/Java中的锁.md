@@ -2,6 +2,8 @@
 
 [【基本功】不可不说的Java“锁”事 (qq.com)](https://mp.weixin.qq.com/s/E2fOUHOabm10k_EVugX08g)
 
+[Java锁与线程的那些事 (youzan.com)](https://tech.youzan.com/javasuo-yu-xian-cheng-de-na-xie-shi/) 
+
 Java 基本的锁
 
 ![Java中的锁](media/images/Java中的锁.png)

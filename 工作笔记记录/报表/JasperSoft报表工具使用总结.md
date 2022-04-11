@@ -31,22 +31,24 @@
 上面的一些设置也可以通过在代码里面进行设置：
 
 ```java
-@Override
-    public void export(JasperPrint print) {
-        ByteArrayOutputStream pdfOut = new ByteArrayOutputStream();
+ByteArrayOutputStream pdfOut = new ByteArrayOutputStream();
         try {
             JRXlsExporter exporter = new JRXlsExporter();
             exporter.setExporterInput(new SimpleExporterInput(print));
             exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(pdfOut));
             // do not set the default white background and remove the empty between the rows and the empty between the columns
-            // 这些就是用来设置导出时候的一些配置
             AbstractXlsReportConfiguration xlsReportConfiguration = new AbstractXlsReportConfiguration();
             xlsReportConfiguration.setWhitePageBackground(Boolean.FALSE);
             xlsReportConfiguration.setRemoveEmptySpaceBetweenColumns(Boolean.TRUE);
-            if (removeEmptySpaceBetweenRows) {
-                xlsReportConfiguration.setRemoveEmptySpaceBetweenRows(Boolean.TRUE);
-            }
+            xlsReportConfiguration.setRemoveEmptySpaceBetweenRows(Boolean.TRUE);
             xlsReportConfiguration.setDetectCellType(Boolean.TRUE);
+            // FULL_TEXT
+            xlsReportConfiguration.setShrinkToFit(Boolean.FALSE); // 设置字体自动伸缩
+            xlsReportConfiguration.setWrapText(Boolean.TRUE); // 设置是否换行
+            xlsReportConfiguration.setIgnoreCellBorder(Boolean.FALSE);
+            xlsReportConfiguration.setFreezeRow(2); // 冻结至多少行
+            xlsReportConfiguration.setFreezeColumn("C"); // 冻结至多少列，之前的会被冻结
+
             exporter.setConfiguration(xlsReportConfiguration);
             exporter.exportReport();
         } catch (JRException e) {
@@ -56,7 +58,6 @@
         }
         InputStream pdfInputStream = new ByteArrayInputStream(pdfOut.toByteArray());
         response.setReportInputStream(pdfInputStream);
-    }
 ```
 
 可以对单独的一个组件，例如：textField 进行设置属性：
@@ -347,3 +348,39 @@ import 标签需要放在field上面，properties的下面。可以在报表中�
 ![image-20210524113023036](media/images/image-20210524113023036.png)
 
 报表里的文字重叠，需要在重叠的上下字段分隔，将上半部分和下半部分写在两个band 里才行。或者是**加宽加高这个字段的TextField**。 
+
+
+
+##### 13 xls 导出参数
+
+https://community.jaspersoft.com/wiki/xls-export-parameters-jasperreports-server
+
+![image-20220125113705206](media/images/image-20220125113705206.png)
+
+
+
+##### 14 Maven无法下载2.1.7.js7版本的itext依赖
+
+[(2条消息) Maven无法下载2.1.7.js7版本的itext依赖_不积跬步，无以至千里-CSDN博客_itext2.1.7 maven](https://lewky.blog.csdn.net/article/details/109322686) 
+
+![image-20220125154112809](media/images/image-20220125154112809.png)
+
+[**DynamicJasper**](http://dynamicjasper.com/) 依赖版本过高：
+
+因为添加了一个依赖，`"ar.com.fdvs" % "DynamicJasper" % "5.3.0"`  这个版本所需要的  `net.sf.jasperreports jasperreports 6.11.0` 是这个版本，而项目里的版本是 6.7.0。查看官网后，需要将 
+
+`ar.com.fdvs` 版本修改成 5.2.0：
+
+![image-20220125161559106](media/images/image-20220125161559106.png)
+
+
+
+##### 15 报表的一些根据源代码的例子
+
+[Add expression in text field using dynamic jasper (jellyfishtechnologies.com)](https://www.jellyfishtechnologies.com/blog/add-expression-text-field-using-dynamic-jasper/) 用代码添加字段和设计报表
+
+[Building Dynamic Columns in JasperReports - Solution Design Group](https://solutiondesign.com/insights/building-dynamic-columns-in-jasperreports/) 
+
+
+
+http://jasperreports.sourceforge.net/sample.reference/printservice/index.html

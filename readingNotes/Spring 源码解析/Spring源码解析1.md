@@ -1,5 +1,42 @@
 ## Spring 源码解析（一）
 
+结构图
+
+![SpringFramework](media/images/SpringFramework.png)
+
+**Spring Core**
+
+核心模块， Spring 其他所有的功能基本都需要依赖于该类库，主要提供 IoC 依赖注入功能的支持。
+
+**Spring Aspects**
+
+该模块为与 AspectJ 的集成提供支持。
+
+**Spring AOP**
+
+提供了面向切面的编程实现。
+
+**Spring Data Access/Integration ：**
+
+Spring Data Access/Integration 由 5 个模块组成：
+
+- spring-jdbc : 提供了对数据库访问的抽象 JDBC。不同的数据库都有自己独立的 API 用于操作数据库，而 Java 程序只需要和 JDBC API 交互，这样就屏蔽了数据库的影响。
+- spring-tx : 提供对事务的支持。
+- spring-orm : 提供对 Hibernate 等 ORM 框架的支持。
+- spring-oxm ： 提供对 Castor 等 OXM 框架的支持。
+- spring-jms : Java 消息服务。
+
+**Spring Web**
+
+Spring Web 由 4 个模块组成：
+
+- spring-web ：对 Web 功能的实现提供一些最基础的支持。
+- spring-webmvc ： 提供对 Spring MVC 的实现。
+- spring-websocket ： 提供了对 WebSocket 的支持，WebSocket 可以让客户端和服务端进行双向通信。
+- spring-webflux ：提供对 WebFlux 的支持。WebFlux 是 Spring Framework 5.0 中引入的新的响应式框架。与 Spring MVC 不同，它不需要 Servlet API，是完全异步
+
+（介绍参考：[JavaGuide](https://javaguide.cn/system-design/framework/spring/spring-knowledge-and-questions-summary.html#列举一些重要的-spring-模块) ）
+
 ### 一、Spring 的结构组成 
 
 使用的测试类代码：
@@ -4027,21 +4064,24 @@ protected void registerDisposableBeanIfNecessary(String beanName, Object bean, R
 
 #### bean 的生命周期顺序
 
-（1）bean 的实例化（一个空白的bean）
+1. bean 的实例化（一个空白的bean）
+2. 属性填充
+3. 调用 bean 实现的相关 Aware 接口
+4. 调用后处理器接口方法（实例化之前的，Before）beanProcessor.postProcessBeforeInitialization(result, beanName)
 
-（2）属性填充
+5. 执行实现了InitializingBean接口，并在afterPropertiesSet的方法里面执行逻辑 ((InitializingBean) bean).afterPropertiesSet();
 
-（3）调用 bean 实现的相关 Aware 接口
+6. 调用 bean 的 init-method 方法
 
-（4）调用后处理器接口方法（实例化之前的，Before）beanProcessor.postProcessBeforeInitialization(result, beanName)
+7. 调用后处理器接口方法（实例化之后的，After）beanProcessor.postProcessAfterInitialization(result, beanName)
 
-（5）执行实现了InitializingBean接口，并在afterPropertiesSet的方法里面执行逻辑((InitializingBean) bean).afterPropertiesSet();
+8. 当要销毁 bean 的时候
 
-（6）调用 bean 的 init-method 方法
+- （1）如果实现了 DestructionAwareBeanPostProcessor 接口，则先执行 processor.postProcessBeforeDestruction(this.bean, this.beanName) 方法。
 
-（7）调用后处理器接口方法（实例化之后的，After）beanProcessor.postProcessAfterInitialization(result, beanName)
+- （2）再执行 DisposableBean 的 destory() 方法，((DisposableBean) this.bean).destroy();
 
-（8）当要销毁 bean 的时候，如果实现了DestructionAwareBeanPostProcessors,DisposableBean interface, custom destroy method. 的时候，会先调用DisposableBean 的 destory() 方法，然后调用自定义的 destroy method
+- （3）最后再调用自定义的 destroyMethod 方法。
 
 
 
