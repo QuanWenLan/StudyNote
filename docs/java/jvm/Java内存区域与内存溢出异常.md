@@ -49,7 +49,58 @@
 　　![常量池包含内容](media/images/常量池包含内容.jpg)
 　　参考---[常量池中包含的内容](https://blog.csdn.net/wangbiao007/article/details/78545189)
 
+[字符串常量池常见问题| JavaGuide](https://javaguide.cn/java/jvm/memory-area.html#_4-1-字符串常量池常见问题) 
+
+```java
+String str1 = "str";
+String str2 = "ing";
+String str3 = "str" + "ing";//常量池中的对象
+String str4 = str1 + str2; //在堆上创建的新的对象
+String str5 = "string";//常量池中的对象
+System.out.println(str3 == str4);//false
+System.out.println(str3 == str5);//true
+System.out.println(str4 == str5);//false
+```
+
+上面的代码运行之后会输出什么呢？
+
+答案是：false,false
+
+**这是为什么呢？**
+
+我们先来看下面这种创建字符串对象的方式：
+
+```java
+// 从字符串常量池中拿对象
+String str1 = "abcd";
+```
+
+这种情况下，jvm 会先检查字符串常量池中有没有"abcd"，如果字符串常量池中没有，则创建一个，然后 str1 指向字符串常量池中的对象，如果有，则直接将 str1 指向"abcd"；
+
+因此，`str1` 指向的是字符串常量池的对象。
+
+我们再来看下面这种创建字符串对象的方式：
+
+```java
+// 直接在堆内存空间创建一个新的对象。
+String str2 = new String("abcd");
+String str3 = new String("abcd");
+```
+
+**只要使用 new 的方式创建对象，便需要创建新的对象** 。
+
+使用 new 的方式创建对象的方式如下，可以简单概括为 3 步：
+
+1. 在堆中创建一个字符串对象
+2. 检查字符串常量池中是否有和 new 的字符串值相等的字符串常量
+3. 如果没有的话需要在字符串常量池中也创建一个值相等的字符串常量，如果有的话，就直接返回堆中的字符串实例对象地址。
+
+因此，`str2` 和 `str3` 都是在堆中新创建的对象。
+
+
+
 #### 2.7  直接内存
+
 　　**直接内存并不是虚拟机运行时数据区的一部分，也不是虚拟机规范中定义的内存区域，但是这部分内存也被频繁地使用。而且也可能导致 OutOfMemoryError 错误出现**。
 
 　　JDK1.4 中新加入的 **NIO(New Input/Output) 类**，引入了一种基于**通道（Channel）** 与**缓存区（Buffer）** 的 I/O 方式，它可以直接使用 Native 函数库直接分配堆外内存，然后通过一个存储在 Java 堆中的 DirectByteBuffer 对象作为这块内存的引用进行操作。这样就能在一些场景中显著提高性能，因为避免了在 Java 堆和 Native 堆之间来回复制数据。
