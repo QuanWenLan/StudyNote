@@ -49,7 +49,7 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [06全局锁和表锁：给表加个字段这么多阻碍](docs/数据库/mysql/06全局锁和表锁：给表加个字段这么多阻碍？.md)  
   - [07行锁功过：怎么减少行锁对性能的影响](docs/数据库/mysql/07行锁功过：怎么减少行锁对性能的影响.md)  
   - [08事务到底是隔离的还是不隔离的](docs/数据库/mysql/08事务到底是隔离的还是不隔离的.md)  
-  - 09普通索引和唯一索引，怎么选择
+  - [09普通索引和唯一索引，怎么选择](docs/数据库/mysql//09普通索引和唯一索引.md)
   - [10MySQL为什么有时候会选错索引](docs/数据库/mysql/10MySQL为什么有时候会选错索引.md)   
   - [11怎么给字符串加索引](docs/数据库/mysql/11怎么给字符串加索引.md)   
   - [12为什么我的MySQL会抖一下](docs/数据库/mysql/12为什么我的MySQL会抖一下.md)   
@@ -65,7 +65,15 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [26备库为什么会延迟好几个小时](docs/数据库/mysql/26备库为什么会延迟好几个小时.md)   
   - [慢查询日志](docs/数据库/mysql/慢查询日志.md) 
 
+#### Spring 
 
-
+- 《Spring源码深度解析》第一版 摘抄
+  
+  - [配置文件加载，bean 加载、初始化、获取，循环依赖](docs/readingNotes/Spring 源码解析/Spring源码解析1.md)
+  - [扩展功能ClasspathXmlApplicationContext、AOP](docs/readingNotes/Spring 源码解析/Spring源码解析2.md) 
+  - [消息JMS](docs/readingNotes/Spring 源码解析/Spring源码解析3-消息.md)
+  - [事务](docs/readingNotes/Spring 源码解析/Spring源码解析4-事务.md) 
+  - [事件监听及ApplicationContext](docs/readingNotes/Spring 源码解析/Spring-ApplicationContext及事件监听解析.md) 
+  - [Aware接口](docs/readingNotes/Spring 源码解析/Spring源码解析-Aware 接口.md) 
 
 

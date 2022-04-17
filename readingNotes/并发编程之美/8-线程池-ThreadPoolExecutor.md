@@ -495,5 +495,47 @@ public List<Runnable> shutdownNow() {
 
 CPU 密集型简单理解就是利用 CPU 计算能力的任务比如你在内存中对大量数据进行排序。但凡涉及到网络读取，文件读取这类都是 IO 密集型，这类任务的特点是 CPU 计算耗费时间相比于等待 IO 操作完成的时间来说很少，大部分时间都花在了等待 IO 操作完成上。
 
------ 著作权归Guide哥所有。 链接: [Java 线程池详解 | JavaGuide](https://javaguide.cn/java/concurrent/java-thread-pool-summary/#七-线程池大小确定) 
+----- 著作权归Guide哥所有。 链接: [Java 线程池详解 | JavaGuide](https://javaguide.cn/java/concurrent/java-thread-pool-summary/#七-线程池大小确定)
+
+
+注意点：
+
+##### 案例1
+
+**不要将线程池作为局部变量使用**
+
+```java
+public void request(List<Id> ids) {
+  for (int i = 0; i < ids.size(); i++) {
+     ExecutorService threadPool = Executors.newSingleThreadExecutor();
+  }
+}
+```
+
+在for循环中创建线程池，那么每次执行该方法时，入参的list长度有多大就会创建多少个线程池，并且方法执行完后也没有及时调用shutdown()方法将线程池销毁
+
+这样的话，随着不断有请求进来，线程池占用的内存会越来越多，就会导致频繁fullGC甚至OOM。每次方法调用都创建线程池是很不合理的，因为这和自己频繁创建、销毁线程没有区别，不仅没有利用线程池的优势，反而还会耗费线程池所需的更多资源.
+
+##### 案例2
+
+**谨慎使用默认的线程池静态方法**
+
+```java
+Executors.newFixedThreadPool(int);     //创建固定容量大小的线程池
+Executors.newSingleThreadExecutor();   //创建容量为1的线程池
+Executors.newCachedThreadPool();       //创建一个线程池，线程池容量大小为Integer.MAX_VALUE
+```
+
+上述三个默认线程池的风险点：
+newSingleThreadExecutor将corePoolSize和maximumPoolSize都设置为1，也使用的LinkedBlockingQueue
+
+LinkedBlockingQueue默认容量为`Integer.MAX_VALUE=2147483647`，对于真正的机器来说，可以被认为是无界队列
+
+- newFixedThreadPool和newSingleThreadExecutor在运行的线程数超过corePoolSize时，后来的请求会都被放到阻塞队列中等待，因为阻塞队列设置的过大，后来请求不能快速失败而长时间阻塞，就可能造成请求端的线程池被打满，拖垮整个服务。
+
+newCachedThreadPool将corePoolSize设置为0，将maximumPoolSize设置为`Integer.MAX_VALUE`，阻塞队列使用的SynchronousQueue，SynchronousQueue不会保存等待执行的任务
+
+- 所以newCachedThreadPool是来了任务就创建线程运行，而maximumPoolSize相当于无限的设置，使得创建的线程数可能会将机器内存占满。
+
+**所以需要根据自身业务和硬件配置创建自定义线程池**
 
