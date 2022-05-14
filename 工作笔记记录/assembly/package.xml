@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<assembly>
+    <id>test</id>
+    <formats>
+        <format>jar</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>/</outputDirectory>
+            <useProjectArtifact>false</useProjectArtifact>
+            <unpack>true</unpack>
+            <excludes>
+                <!-- 排除一些要使用项目已经有的相关依赖-->
+                <exclude>commons-beanutils:commons-beanutils</exclude>
+                <exclude>commons-codec:commons-codec</exclude>
+                <exclude>commons-collections:commons-collections</exclude>
+                <exclude>commons-digester:commons-digester</exclude>
+                <exclude>commons-lang:commons-lang</exclude>
+                <exclude>commons-logging:commons-logging</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets>
+
+    <fileSets>
+        <fileSet>
+            <directory>${project.build.directory}/classes</directory>
+            <outputDirectory>/</outputDirectory>
+            <excludes>
+                <exclude>**/*.properties</exclude>
+                <exclude>**/*.p12</exclude>
+                <exclude>**/*.json</exclude>
+                <exclude>com/Test.class</exclude>
+            </excludes>
+        </fileSet>
+    </fileSets>
+</assembly>

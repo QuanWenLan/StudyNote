@@ -1,0 +1,185 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.ettrade.ngbss</groupId>
+    <artifactId>ngbss-push-utils</artifactId>
+    <packaging>jar</packaging>
+    <version>5.0.1-SNAPSHOT</version>
+    <name>Mobile push library for NGBSS</name>
+
+    <repositories>
+        <repository>
+            <id>ett-repo</id>
+            <url>http://ettwp/maven/</url>
+        </repository>
+    </repositories>
+
+    <distributionManagement>
+      <repository>
+        <id>ett-repo</id>
+        <name>ettrade Repository</name>
+        <url>sftp://ettwp/var/www/html/maven/</url>
+      </repository>
+    </distributionManagement>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <timestamp>${maven.build.timestamp}</timestamp>
+        <maven.build.timestamp.format>yyyyMMddHHmm</maven.build.timestamp.format>
+        <jdk.version>1.8</jdk.version>
+        <json-simple.version>1.1.1</json-simple.version>
+        <commons-configuration.version>1.7</commons-configuration.version>
+        <commons-lang.version>2.4</commons-lang.version>
+        <commons-collections.version>3.2.1</commons-collections.version>
+        <commons-digester.version>1.8.1</commons-digester.version>
+        <commons-logging.version>1.1.1</commons-logging.version>
+        <log4j.version>1.2.15</log4j.version>
+        <commons-pushy.version>0.13.11</commons-pushy.version>
+        <commons-netty.version>2.0.34.Final</commons-netty.version> 
+    </properties>
+
+    <build>
+        <extensions>
+          <extension>
+            <groupId>org.apache.maven.wagon</groupId>
+            <artifactId>wagon-ssh</artifactId>
+            <version>2.4</version>
+          </extension>
+        </extensions>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.1</version>
+                <configuration>
+                    <encoding>ISO-8859-1</encoding>
+                    <source>${jdk.version}</source>
+                    <target>${jdk.version}</target>
+                </configuration>
+            </plugin>
+            <!--<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.3.2</version>
+                <configuration>
+                  <excludes>
+                    <exclude>**/*.properties</exclude>
+                    <exclude>**/*.p12</exclude>
+                    <exclude>**/*.json</exclude>
+                  </excludes>
+                  <finalName>${project.artifactId}-${project.version}-${maven.build.timestamp}</finalName>
+                </configuration>
+            </plugin>-->
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <!--<descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>-->
+                    <descriptors>
+                        <descriptor>src/main/assembly/package.xml</descriptor>
+                    </descriptors>
+                    <finalName>${project.artifactId}-${project.version}-${maven.build.timestamp}</finalName>
+                </configuration>
+                <!--下面是为了使用 mvn package命令，如果不加则使用mvn assembly-->
+                <executions>
+                    <execution>
+                        <id>make-assemble</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>${json-simple.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-configuration</groupId>
+            <artifactId>commons-configuration</artifactId>
+            <version>${commons-configuration.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-lang</groupId>
+            <artifactId>commons-lang</artifactId>
+            <version>${commons-lang.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-collections</groupId>
+            <artifactId>commons-collections</artifactId>
+            <version>${commons-collections.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-digester</groupId>
+            <artifactId>commons-digester</artifactId>
+            <version>${commons-digester.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>commons-beanutils</artifactId>
+                    <groupId>commons-beanutils</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+            <version>${commons-logging.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.eatthepath</groupId>
+            <artifactId>pushy</artifactId>
+            <version>${commons-pushy.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
+            <version>${commons-netty.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <version>${log4j.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.mail</groupId>
+                    <artifactId>mail</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.jms</groupId>
+                    <artifactId>jms</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jdmk</groupId>
+                    <artifactId>jmxtools</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.sun.jmx</groupId>
+                    <artifactId>jmxri</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- FCM -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>8.1.0</version>
+        </dependency>
+    </dependencies>
+    
+</project>

@@ -1,0 +1,2 @@
+这个是maven问题中，如何使用 `maven-assembly-plugin`  插件打包的配置
+pom.xml 文件以及 package.xml

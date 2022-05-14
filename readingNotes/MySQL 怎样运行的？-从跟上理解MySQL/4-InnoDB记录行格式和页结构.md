@@ -175,6 +175,8 @@ c3 列类型是 CHAR(10)，是一个定长字符集，也就是说表示一个�
 
 #### 3 行溢出数据
 
+###### MySQL 规定一条记录所占最多65535个字节
+
 我们知道对于 VARCHAR(M) 类型的列最多可以占用 65535 个字节。其中的 M 代表该类型最多存储的字符数量，如 果我们使用 ascii 字符集的话，一个字符就代表一个字节，我们看看 VARCHAR(65535) 是否可用：
 
 ```mysql
@@ -184,7 +186,7 @@ mysql>CREATE TABLE varchar_size_demo(
 ERROR 1118 (42000): Row size too large. The maximum row size for the used table type, not counting BLOBs, is 65535. This includes storage overhead, check the manual. You have to c hange some columns to TEXT or BLOBs mysql>
 ```
 
-从报错信息里可以看出， MySQL 对一条记录占用的最大存储空间是有限制的，除了 BLOB 或者 TEXT 类型的列之 外，其他所有的列（不包括隐藏列和记录头信息）占用的字节长度加起来不能超过 65535 个字节。所以 MySQL 服 务器建议我们把存储类型改为 TEXT 或者 BLOB 的类型。这个 65535 个字节除了列本身的数据之外，还包括一些 其他的数据（ storage overhead ），比如说我们为了存储一个 VARCHAR(M) 类型的列，其实需要占用3部分存储 空间：
+从报错信息里可以看出， **MySQL 对一条记录占用的最大存储空间是有限制的，除了 BLOB 或者 TEXT 类型的列之 外，其他所有的列（不包括隐藏列和记录头信息）占用的字节长度加起来不能超过 65535 个字节**。所以 MySQL 服 务器建议我们把存储类型改为 TEXT 或者 BLOB 的类型。这个 65535 个字节除了列本身的数据之外，还包括一些 其他的数据（ storage overhead ），比如说我们为了存储一个 VARCHAR(M) 类型的列，其实需要占用3部分存储 空间：
 
 - 真实数据
 - 真实数据占用字节的长度 
@@ -209,12 +211,12 @@ mysql> CREATE TABLE varchar_size_demo(
 如果 VARCHAR(M) 类型的列使用的不是 ascii 字符集，那会怎么样呢？来看一下：
 
 ```mysql
-mysql> CREATE TABLE varchar_size_demo( ->
-c VARCHAR(65532) -> ) CHARSET=gbk ROW_FORMAT=Compact;
+mysql> CREATE TABLE varchar_size_demo( 
+    ->c VARCHAR(65532) -> ) CHARSET=gbk ROW_FORMAT=Compact;
 ERROR 1074 (42000): Column length too big for column 'c' (max = 32767); use BLOB or TEXT i nstead
 
-mysql> CREATE TABLE varchar_size_demo( ->
-c VARCHAR(65532) -> ) CHARSET=utf8 ROW_FORMAT=Compact;
+mysql> CREATE TABLE varchar_size_demo( 
+    ->c VARCHAR(65532) -> ) CHARSET=utf8 ROW_FORMAT=Compact;
 ERROR 1074 (42000): Column length too big for column 'c' (max = 21845); use BLOB or TEXT i nstead
 ```
 
