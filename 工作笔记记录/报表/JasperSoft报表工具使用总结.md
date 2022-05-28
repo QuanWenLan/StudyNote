@@ -384,3 +384,8 @@ https://community.jaspersoft.com/wiki/xls-export-parameters-jasperreports-server
 
 
 http://jasperreports.sourceforge.net/sample.reference/printservice/index.html
+
+
+
+##### 16 控制报表格式为.txt
+
