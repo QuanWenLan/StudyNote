@@ -280,3 +280,109 @@ UPDATE undo_demo SET key1 = 'M249', col = '机枪' WHERE id = 2;
 
 ### undo 日志（下）
 
+#### 1 通用链表
+
+在写入 undo 日志的过程中会使用到多个链表，很多链表都有同样的节点结构，如图所示：
+
+![image-20220514184356772](media/images/image-20220514184356772.png)
+
+为了更好的管理链表，mysql 设计者还提出了一个基节点的结构，里边存储了这个链表的头节点、尾节点以及链表长度信息，基节点的结构示意图如下：
+
+![image-20220514184746003](media/images/image-20220514184746003.png)
+
+List Length 表明该链表一共有多少节点 。
+First Node Page Number 和 First Node Offset 的组合就是指向链表头节点的指针。
+Last Node Page Number 和 Last Node Offset 的组合就是指向链表尾节点的指针  
+
+所以，使用 List Base Node 和 List Node 这两个结构组成的链表的示意图就是这样：
+
+![image-20220514184842948](media/images/image-20220514184842948.png)
+
+#### 2 FIL_PAGE_UNDO_LOG页面   
+
+表空间其实是由许许多多的页面构成的，页面默认的大小为 16 kb。这些页面有不同的类型，比如比如类型为 FIL_PAGE_INDEX 的页面用于存储聚簇索引以及二级索引，类型为 **FIL_PAGE_TYPE_FSP_HDR** 的页面用于存储表空间头部信息的，还有其他各种类型的页面，其中**有一种称之为 FIL_PAGE_UNDO_LOG 类型的页面是专门用来存储 undo日志 的**，这种类型的页面的通用结构如下图所示（以默认的 16KB 大小为例）。
+
+![image-20220514185127630](media/images/image-20220514185127630.png)
+
+上图中的 File Header 和 File Trailer 是各种页面都有的通用结构，我们前边唠叨过很多遍了，这里就不赘述了（忘记了的可以到讲述数据页结构或者表空间的章节中查看）。 Undo Page Header 是 Undo页面 所特有的，我们来看一下它的结构 。
+
+![image-20220514185226150](media/images/image-20220514185226150.png)
+
+- **TRX_UNDO_PAGE_TYPE** ：本页面准备存储什么种类的 undo日志 。
+
+我们前面介绍了好几种类型的 undo 日志，他们可以分为两个大类：
+
+- **TRX_UNDO_INSERT** （使用十进制 1 表示）：类型为 TRX_UNDO_INSERT_REC 的 undo日志 属于此大类，一般由 INSERT 语句产生，或者在 UPDATE 语句中有更新主键的情况也会产生此类型的 undo日志。
+- TRX_UNDO_UPDATE （使用十进制 2 表示），除了类型为 TRX_UNDO_INSERT_REC 的 undo日志 ，其他类型的 undo日志 都属于这个大类，比如我们前边说的 TRX_UNDO_DEL_MARK_REC 、TRX_UNDO_UPD_EXIST_REC 啥的，一般由 DELETE 、 UPDATE 语句产生的 undo日志 属于这个大类 。
+
+**不同大类的 undo日志 不能混着存储**，比如一个 Undo页面 的 TRX_UNDO_PAGE_TYPE 属性值为
+TRX_UNDO_INSERT ，那么这个页面就只能存储类型为 TRX_UNDO_INSERT_REC 的 undo日志 ，其他类型的 undo日志 就不能放到这个页面中了 。
+
+> 之所以把undo日志分成两个大类，**是因为类型为TRX_UNDO_INSERT_REC的undo日志在事务提交**
+> **后可以直接删除掉，而其他类型的undo日志还需要为所谓的MVCC服务**，不能直接删除掉，对它
+> 们的处理需要区别对待。
+
+- **TRX_UNDO_PAGE_START** ：表示在当前页面中是从什么位置开始存储 undo日志 的，或者说表示第一条 undo日志 在本页面中的起始偏移量。  
+- **TRX_UNDO_PAGE_FREE** ：与上边的 TRX_UNDO_PAGE_START 对应，**表示当前页面中存储的最后一条 undo 日志结束时的偏移量，或者说从这个位置开始，可以继续写入新的 undo日志** 。
+
+假设现在向页面中写入了3条 undo日志 ，那么 TRX_UNDO_PAGE_START 和 TRX_UNDO_PAGE_FREE 的示意图就是这样：  
+
+![image-20220514185536599](media/images/image-20220514185536599.png)
+
+当然，在最初一条 undo日志 也没写入的情况下， TRX_UNDO_PAGE_START 和TRX_UNDO_PAGE_FREE 的值是相同的。
+
+- TRX_UNDO_PAGE_NODE ：代表一个 List Node 结构（链表的普通节点，我们上边刚说的）。
+
+#### 3 undo 页面链表
+
+##### 3.1 单个事务中的 undo 页面链表
+
+**因为一个事务可能包含多个语句，而且一个语句可能对若干条记录进行改动，而对每条记录进行改动前，都需要记录1条或2条的 undo日志** ，所以**在一个事务执行过程中可能产生很多 undo日志 ，这些日志可能一页面放不下，需要放到多个页面中，这些页面就通过我们上边介绍的 TRX_UNDO_PAGE_NODE 属性连成了链表**：  
+
+![image-20220514185835116](media/images/image-20220514185835116.png)
+
+我们特意把链表中的第一个 Undo页面 给标了出来，称它为 **first undo page** ，**其余的 Undo页面 称之为 normal undo page** ，这是因为在 **first undo page 中除了记录 Undo Page Header 之外，还会记录其他的一些管理信息**。 
+
+在一个事务执行过程中，可能混着执行 INSERT 、 DELETE 、 UPDATE 语句，也就意味着会产生不同类型的 undo日志 。但是我们前边又强调过，同一个 Undo页面 要么只存储 TRX_UNDO_INSERT 大类的 undo日志 ，要么只存储TRX_UNDO_UPDATE 大类的 undo日志 ，反正不能混着存，**所以在一个事务执行过程中就可能需要2个 Undo页面 的链表，一个称之为 insert undo链表 ，另一个称之为 update undo链表**。
+
+![image-20220514190014841](media/images/image-20220514190014841.png)
+
+另外，设计 InnoDB 的大叔**规定对普通表和临时表的记录改动时产生的 undo日志要分别记录**（我们稍后阐释为啥这么做），**所以在一个事务中最多有4个以 Undo页面 为节点组成的链表**。
+
+![image-20220514190100379](media/images/image-20220514190100379.png)
+
+当然，并不是在事务一开始就会为这个事务分配这4个链表，具体分配策略如下：
+
+- 刚刚开启事务时，一个 Undo页面 链表也不分配。
+- 当事务执行过程中向普通表中插入记录或者执行更新记录主键的操作之后，就会为其分配一个 普通表的insert undo链表 。
+- 当事务执行过程中删除或者更新了普通表中的记录之后，就会为其分配一个 普通表的update undo链表 。
+- 当事务执行过程中向临时表中插入记录或者执行更新记录主键的操作之后，就会为其分配一个 临时表的insert undo链表 。
+- 当事务执行过程中删除或者更新了临时表中的记录之后，就会为其分配一个 临时表的update undo链表 。  
+
+**按需分配，啥时候需要啥时候再分配，不需要就不分配**。
+
+##### 3.2 多个事务中的 undo 页面链表 
+
+**为了尽可能提高 undo日志 的写入效率，不同事务执行过程中产生的undo日志需要被写入到不同的Undo页面链表中**。比方说现在有事务 id 分别为 1 、 2 的两个事务，我们分别称之为 trx 1 和 trx 2 ，假设在这两个事务执行过程中：
+
+- trx 1 对普通表做了 DELETE 操作，对临时表做了 INSERT 和 UPDATE 操作 。
+
+  InnoDB 会为 trx1 分配 3 个链表：
+
+  - 针对普通表的 update undo链表。
+  - 针对临时表的 insert undo链表。
+  - 针对临时表的 update undo链表。
+
+- trx 2 对普通表做了 INSERT 、 UPDATE 和 DELETE 操作，没有对临时表做改动 。
+
+  InnoDB 会为 trx 2 分配2个链表，分别是：
+
+  - 针对普通表的 insert undo链表
+  - 针对普通表的 update undo链表 
+
+综上所述，在 trx 1 和 trx 2 执行过程中， InnoDB 共需为这两个事务分配5个 Undo页面 链表，画个图就是这样。
+
+![image-20220514190517458](media/images/image-20220514190517458.png)
+
+如果有更多的事务，那就意味着可能会产生更多的 Undo页面链表。
+
