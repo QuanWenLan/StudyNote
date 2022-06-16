@@ -1,9 +1,3 @@
-极客时间《Redis 核心技术与实战》笔记三-性能和内存 
-
-18-19讲、
-
----
-
 ### 18 | 波动的响应延迟：如何应对变慢的Redis？（上）
 
 在 Redis 的实际部署应用中，有一个非常严重的问题，那就是 Redis 突然变慢了。一旦出现这个问题，不仅会直接影响用户的使用体验，还可能会影响到“旁人”，也就是和 Redis 在同一个业务系统中的其他系统，比如说数据库。
@@ -45,7 +39,6 @@
 举个例子，比如说，我们运行下面的命令，该命令会打印 120 秒内监测到的最大延迟。可以看到，这里的最大延迟是 119 微秒，也就是基线性能为 119 微秒。一般情况下，运行 120 秒就足够监测到最大延迟了，所以，我们可以把参数设置为 120。
 
 ```java
-
 ./redis-cli --intrinsic-latency 120
 Max latency so far: 17 microseconds.
 Max latency so far: 44 microseconds.
@@ -64,7 +57,6 @@ Worst run took 36x longer than the average latency.
 判断基线性能这一点，对于在虚拟化环境下运行的 Redis 来说，非常重要。这是因为，在虚拟化环境（例如虚拟机或容器）中，由于增加了虚拟化软件层，与物理机相比，虚拟机或容器本身就会引入一定的性能开销，所以基线性能会高一些。下面的测试结果，显示的就是某一个虚拟机上运行 Redis 时测的基线性能。
 
 ```java
-
 $ ./redis-cli --intrinsic-latency 120
 Max latency so far: 692 microseconds.
 Max latency so far: 915 microseconds.
@@ -160,7 +152,7 @@ Redis 键值对的 key 可以设置过期时间。**默认情况下，Redis 每 
 
 
 
----
+
 
 ### 19 | 波动的响应延迟：如何应对变慢的Redis？（下）
 
@@ -253,7 +245,6 @@ process_id: 5332
 然后，进入 Redis 所在机器的 /proc 目录下的该进程目录中：
 
 ```java
-
 $cat smaps | egrep '^(Swap|Size)'
 Size: 584 kB
 Swap: 0 kB
