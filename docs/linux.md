@@ -43,3 +43,33 @@ firewall-cmd --state
 ##### 重启防火墙(修改配置后要重启防火墙) ---必须操作
 
 `firewall-cmd --reload`
+
+
+
+
+
+#### 22端口访问不了
+
+使用腾讯云的VNC或者网页登录后，切换到目录 /etc/ssh 下。
+
+- 执行 systemctl start sshd 命令
+- 执行netstat -lunpt命令看下sshd服务是否监听
+- 执行 sshd -t命令排除故障
+- 执行 systemctl restart sshd 重启服务
+
+
+
+备用方法：
+
+1.systemctl stop firewalld
+2.iptables -I INPUT -p tcp --dport 11222 -j ACCEPT
+执行完后访问测试，如果不通执行下面命令
+3.iptables-save > /iptables.save
+4.iptables -F
+5.setenforce 0
+
+
+
+同样的案例： 收到腾讯云官方的违规提醒：https://www.cnblogs.com/whot/p/15294467.html
+
+[一次惨痛的教训：被pnscan病毒攻击的经过](https://blog.csdn.net/chenmozhe22/article/details/112578057) 
