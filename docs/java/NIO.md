@@ -315,6 +315,8 @@ BIO的缺点：
 
 **即经典的Reactor设计模式**，有时也称为异步阻塞IO，Java中的Selector和Linux中的epoll都是这种模型。
 
+[Reactor模式 - 疯狂创客圈 - 博客园 (cnblogs.com)](https://www.cnblogs.com/crazymakercircle/p/9833847.html) 
+
 **如何避免同步非阻塞NIO模型中轮询等待的问题**呢？这就是IO多路复用模型。
 
 IO多路复用模型，就是**通过一种新的系统调用，一个进程可以监视多个文件描述符，一旦某个描述符就绪（一般是内核缓冲区可读/可写），内核kernel能够通知程序进行相应的IO系统调用**。
