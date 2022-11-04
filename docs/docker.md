@@ -188,3 +188,90 @@ docker rm $(docker ps -a -q) #正在运行的删除不了，所有未运行的�
 或者
 docker container prune #Docker 1.13版本以后，可以使用 docker containers prune 命令，删除孤立的容器
 ```
+
+#### 查看docker启动日志
+
+查看对应服务的启动日志，例如我启动了MySQL，但是没有成功：
+
+```shell
+sudo docker run -p 3306:3306 --name mysql -v /mydata/mysql/log:/var/log/mysql -v /mydata/mysql/data:/var/lib/mysql -v /mydata/mysql/conf:/etc/mysql -e MYSQL_ROOT_PASSWORD=root -d mysql:5.7
+```
+
+查看日志：
+
+`docker logs mysql` 
+
+![image-20221101143327618](media/images/image-20221101143327618.png)
+
+### docker 安装mysql mysqld: Can‘t read dir of ‘/etc/my.cnf.d‘ (OS errno 2 - No such file or directory)
+
+最后的处理参考博客：https://blog.csdn.net/qq_45564783/article/details/126440171 
+
+需要创建两个配置文件在 /mydata/mysql/conf 文件夹下面：conf.d 是一个文件夹，里面为空，mysql.conf.d 也是一个文件夹，里面有一个配置文件 my.cnf。
+
+```sh
+[root@VM-12-9-centos conf]# ll
+total 8
+drwxr-xr-x 2 root root 4096 Nov  1 15:01 conf.d
+drwxr-xr-x 2 root root 4096 Nov  1 15:01 mysql.conf.d
+```
+
+```properties
+# Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; version 2 of the License.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+
+#
+# The MySQL Community Server configuration file.
+#
+# For explanations see
+# http://dev.mysql.com/doc/mysql/en/server-system-variables.html
+
+[client]
+port		= 3306
+socket		= /var/run/mysqld/mysqld.sock
+
+[mysqld_safe]
+pid-file	= /var/run/mysqld/mysqld.pid
+socket		= /var/run/mysqld/mysqld.sock
+nice		= 0
+
+[mysqld]
+skip-host-cache
+skip-name-resolve
+user		= mysql
+pid-file	= /var/run/mysqld/mysqld.pid
+socket		= /var/run/mysqld/mysqld.sock
+port		= 3306
+basedir		= /usr
+datadir		= /var/lib/mysql
+tmpdir		= /tmp
+lc-messages-dir	= /usr/share/mysql
+explicit_defaults_for_timestamp
+
+# Instead of skip-networking the default is now to listen only on
+# localhost which is more compatible and is not less secure.
+#bind-address	= 127.0.0.1
+
+#log-error	= /var/log/mysql/error.log
+
+# Disabling symbolic-links is recommended to prevent assorted security risks
+symbolic-links=0
+
+# * IMPORTANT: Additional settings that can override those from this file!
+#   The files must end with '.cnf', otherwise they'll be ignored.
+#
+!includedir /etc/mysql/conf.d/
+```
+
