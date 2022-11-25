@@ -1,20 +1,20 @@
-### 安装与启动 rabbitmq  
+#### 安装与启动 rabbitmq  
 
-查询rabbitMQ镜像：
+##### 查询rabbitMQ镜像：
 
 management版本，不指定默认为最新版本latest
 
 ` docker search rabbitmq:management`
 
- 拉取镜像：
+#####  拉取镜像：
 
 `docker pull rabbitmq:management`
 
-查看 docker 镜像列表 `docker images`
+##### 查看 docker 镜像列表 `docker images`
 
 ![image-20220529161740128](media/images/image-20220529161740128.png)
 
-启动：
+##### 启动：
 
 `docker run -d -p 5672:5672 -p 15672:15672 --name rabbitmq rabbitmq:management`
 
@@ -27,7 +27,6 @@ $ docker run -d --hostname my-rabbit --name some-rabbit rabbitmq:3-management
 - -d 后台运行
 - -p 隐射端口
 - –name 指定rabbitMQ名称
-- 
 
 ![image-20220529162024054](media/images/image-20220529162024054.png)
 
@@ -203,7 +202,7 @@ sudo docker run -p 3306:3306 --name mysql -v /mydata/mysql/log:/var/log/mysql -v
 
 ![image-20221101143327618](media/images/image-20221101143327618.png)
 
-### docker 安装mysql mysqld: Can‘t read dir of ‘/etc/my.cnf.d‘ (OS errno 2 - No such file or directory)
+#### docker 安装mysql mysqld: Can‘t read dir of ‘/etc/my.cnf.d‘ (OS errno 2 - No such file or directory)
 
 最后的处理参考博客：https://blog.csdn.net/qq_45564783/article/details/126440171 
 
@@ -275,3 +274,67 @@ symbolic-links=0
 !includedir /etc/mysql/conf.d/
 ```
 
+#### docker 安装 redis
+
+##### 下载镜像
+
+```sh
+sudo docker pull redis
+```
+
+##### 查看下载的镜像
+
+```sh
+sudo docker images
+```
+
+##### 启动 redis
+
+###### 创建配置文件
+
+```sh
+sudo mkdir -p /mydata/redis/conf
+sudo touch /mydata/redis/conf/redis.conf
+```
+
+###### 启动redis
+
+```sh
+sudo docker run -p 6379:6379 --name redis -v /mydata/redis/data:/data \
+-v /mydata/redis/conf/redis.conf:/etc/redis/redis.conf \
+-d redis redis-server /etc/redis/redis.conf
+```
+
+##### 连接redis
+
+```sh
+sudo docker exec -it redis redis-cli
+```
+
+修改了端口的话则是要指定端口启动
+
+```sh
+[root@VM-12-9-centos ~]# docker exec -it redis redis-cli -h 127.0.0.1 -p 7963
+127.0.0.1:7963> 
+```
+
+##### 测试redis
+
+set a 100 返回 ok
+
+**Redis报错 : (error) NOAUTH Authentication required. 这个错误是因为没有用密码登陆认证**
+
+使用 `auth 654321` 密码认证
+
+```sh
+set a 100
+```
+
+##### 设置redis 持久化存储
+
+```sh
+修改配置文件：
+sudo vim  /mydata/redis/conf/redis.conf
+添加配置：
+appendonly yes
+```

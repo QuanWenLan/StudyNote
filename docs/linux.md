@@ -73,3 +73,21 @@ firewall-cmd --state
 同样的案例： 收到腾讯云官方的违规提醒：https://www.cnblogs.com/whot/p/15294467.html
 
 [一次惨痛的教训：被pnscan病毒攻击的经过](https://blog.csdn.net/chenmozhe22/article/details/112578057) 
+
+#### Windows 查看端口并结束占用
+
+1. 查找所有运行的端口
+
+`netstat ano`
+
+2. 查看被占用端口对应的 PID
+
+`netstat -aon|findstr "8081"`
+
+3. 查看指定 PID 的进程
+
+`tasklist|findstr "9088"`
+
+4. 结束进程
+
+`taskkill /T /F /PID 9088`

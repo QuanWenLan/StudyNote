@@ -393,3 +393,34 @@ spring:
 ![image-20221101140829033](media/images/image-20221101140829033.png)
 
 此时请求成功。
+
+#### 4 springCloud-Gateway 出现 Unable to start ServletWebServerApplicationContext due to missing ServletWebServerFactory bean. 错误
+
+![image-20221118165621830](media/images/image-20221118165621830.png)
+
+ [彻底找到Spring Webflux与WebMVC 冲突原因](https://zhuanlan.zhihu.com/p/359849941) 
+
+从报错内容上来看是找不到ServletWebServerFactory这个bean导致的错误。从Spring Framework 5.0开始，引入的新的响应式Web框架（Spring WebFlux），与Spring MVC不同，它不需要Servlet API，完全异步和非阻塞。Spring Cloud Gateway 运用了响应式编程（WebFlux）,因此它需要依赖于Servlet API，但是启动的时候为什么还是去找Servlet呢？百思不得其解。
+
+
+
+#### 5 springCloud-Gateway 出现org.[springframework](https://so.csdn.net/so/search?q=springframework&spm=1001.2101.3001.7020).http.codec.ServerCodecConfigurer’ that could not be found错误 
+
+Spring MVC与Spring Cloud网关不兼容。请删除spring-boot-start-web依赖项。
+因为**spring cloud gateway是基于webflux**的，如果非要web支持的话需要导入spring-boot-starter-webflux而不是spring-boot-start-web。
+
+或者添加
+
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+    <exclusions>
+        <exclusion>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-webmvc</artifactId>
+        </exclusion>
+    </exclusions>
+</dependency>
+```
+
