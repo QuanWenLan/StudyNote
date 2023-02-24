@@ -338,3 +338,4 @@ sudo vim  /mydata/redis/conf/redis.conf
 添加配置：
 appendonly yes
 ```
+
