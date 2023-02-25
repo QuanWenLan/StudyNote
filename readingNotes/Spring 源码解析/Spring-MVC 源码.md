@@ -4,9 +4,9 @@
 
 DispatcherServlet：中央控制器，统一调度其他组件的调用，是整个请求响应的控制中心，本质是一个Servlet；
 
-Handler：业务处理器，处理客户端的具体请求和返回处理结果，通常存在形式就是各种Controller；
-
 HandlerMapping：处理器映射器，客户端请求URL和业务处理器的映射关系，根据请求URL可以找到对应的业务处理器；
+
+Handler：业务处理器，处理客户端的具体请求和返回处理结果，通常存在形式就是各种Controller；
 
 HandlerAdapter：处理器适配器，负责调用业务处理器的具体方法，返回逻辑视图ModelAndView对象；
 
@@ -79,7 +79,7 @@ ViewResolver：视图解析器，负责将业务处理器返回的视图ModelAnd
 </web-app>
 ```
 
-项目启动时会创建DispatcherServlet并会执行DispatcherServlet的初始化init方法，查看DispatcherServlet的类图可以发现，DispatcherServlet继承FrameworkServlet，最先开始调用的是 HttpServlet 的init 方法。这个方法是空方法，留给子类覆盖了。而 HttpServletBean 覆盖了这个方法，所以会调用到这个类的 init 方法里面去。至于为什么会调用 HttpServlet 的init方法，还要分析查找下。(应该和tomcat启动有关)
+项目启动时会创建DispatcherServlet并会执行DispatcherServlet的初始化init方法，查看DispatcherServlet的类图可以发现，DispatcherServlet继承FrameworkServlet，最先开始调用的是 HttpServlet 的init 方法。这个方法是空方法，留给子类覆盖了。而 HttpServletBean 覆盖了这个方法，所以会调用到这个类的 init 方法里面去。至于为什么会调用 HttpServlet 的init方法，还要分析查找下。(应该和tomcat启动有关，这里是servlet的生命周期有关，先调用init方法)
 
 ![image-20220413115518595](media/images/image-20220413115518595.png)
 
@@ -192,9 +192,7 @@ protected WebApplicationContext initWebApplicationContext() {
 }
 ```
 
-通过createWebApplicationContext方法创建IOC容器WebApplicationContext并启动刷新容器，当Spring容器启动后再执行onRefresh方法刷新Servlet，Spring容器启动刷新逻辑不再细看，onRefresh方法实际是交给了
-
-子类DispatcherServlet实现，DispatcherServlet的onRefresh方法源码如下：
+通过createWebApplicationContext方法创建IOC容器WebApplicationContext并启动刷新容器，当Spring容器启动后再执行onRefresh方法刷新Servlet，Spring容器启动刷新逻辑不再细看，onRefresh方法实际是交给了子类DispatcherServlet实现，DispatcherServlet的onRefresh方法源码如下：
 
 ```java
 // org.springframework.web.servlet.FrameworkServlet#onRefresh
@@ -330,8 +328,8 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
          if (!mappedHandler.applyPreHandle(processedRequest, response)) {
             return;
          }
-  /** 3.调用处理器适配器的handle方法处理具体的业务逻辑 */
-         // Actually invoke the handler.
+  /** 3.调用处理器适配器的handle方法处理具体的业务逻辑，返回ModelAndView对象 */
+         // Actually invoke the handler. mv == ModelAndView
          mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
 
          if (asyncManager.isConcurrentHandlingStarted()) {

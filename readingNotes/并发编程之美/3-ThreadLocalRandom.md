@@ -2,7 +2,7 @@
 
 #### 3.1 Random 类及其局限性 
 
-在JDK 7 之前包括现在，java.util.Random都是使用比较广泛的随机数生成工具类，而且java.lang.Math中的随机数生成也使用的是java.util.Random的实例。
+在JDK 7 之前包括现在，java.util.Random都是使用比较广泛的随机数生成工具类，而且java.lang.Math中的随机数生成也使用的是javFa.util.Random的实例。
 
 ```java
 public class RandomTest {

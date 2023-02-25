@@ -210,3 +210,25 @@ redis 服务不支持 chkconfig
 
 ![image-20220525115155801](media/images/image-20220525115155801.png)
 
+
+
+#### docker 安装和配置redis
+
+```sh
+docker run \
+-p 6379:6379 \  docker与宿主机的端口映射
+--name redis \  启动命名redis容器的名字
+-v /docker/redis/redis.conf:/etc/redis/redis.conf \  挂载redis.conf文件
+-v /docker/redis/data:/data \  挂在redis的持久化数据
+--restart=always \  设置redis容器随docker启动而自启动
+-d redis:7.0.4 redis-server /etc/redis/redis.conf \  指定redis在docker中的配置文件路径，-d后台启动redis
+```
+
+获取配置文件：
+
+` wget http://download.redis.io/redis-stable/redis.conf  ` 下载到本地，然后进行修改为我们所需要的配置。
+
+- 将appendonly持久化设置为yes
+- 如果要设置requirepass密码（我设置成了654321）
+- 想外部访问首先将“bind”一行注释。 `bind 127.0.0.1 -::1`
+- 最后启动时使用 -p 7963:7963

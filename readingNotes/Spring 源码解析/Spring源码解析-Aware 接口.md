@@ -12,8 +12,6 @@ spring 已经默认提供了一些Aware接口，可以用来获取我们所需�
 
 ##### 2.1、BeanFactoryAware接口（获取BeanFactory对象）
 
-
-
 ##### 2.2、ApplicatioContextAware接口（获取ApplicationContext对象）
 
 ##### 2.3、BeanNameAware接口（获取当前bean的beanName） 
