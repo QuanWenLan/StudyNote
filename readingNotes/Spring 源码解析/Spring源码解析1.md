@@ -1924,7 +1924,9 @@ protected <T> T doGetBean(final String name, @Nullable final Class<T> requiredTy
 
 Spring为此提供了一个**org.Springframework.bean.factory.FactoryBean的工厂类接口，用户可以通过实现该接口定制实例化bean的逻辑**。 
 
-**BeanFactory 则是用来加载和注册bean 的**。和 FactoryBean 的差别
+##### BeanFactory 和 FactoryBean 的差别
+
+**BeanFactory 则是用来加载和注册bean 的**。
 
 FactoryBean接口对于Spring框架来说占有重要的地位，Spring自身就提供了70多个FactoryBean的实现。它们隐藏了实例化一些复杂bean的细节，给上层应用带来了便利。从Spring 3.0开始，FactoryBean开始支持泛型，即接口声明改为FactoryBean<T>的形式： 
 

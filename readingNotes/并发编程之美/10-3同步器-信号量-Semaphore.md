@@ -1,6 +1,11 @@
 ### 信号量Semaphore原理探究
 
-Semaphore信号量也是Java中的一个同步器，与CountDownLatch和CycleBarrier不同的是，它内部的计数器是递增的，并且在一开始初始化Semaphore时可以指定一个初始值，但是并不需要知道需要同步的线程个数，而是在需要同步的地方调用acquire方法时指定需要同步的线程个数。
+Semaphore信号量也是Java中的一个同步器，与CountDownLatch和CycleBarrier不同的是，**它内部的计数器是递增的，并且在一开始初始化Semaphore时可以指定一个初始值，但是并不需要知道需要同步的线程个数，而是在需要同步的地方调用acquire方法时指定需要同步的线程个数**。
+
+>  可以类似这样理解来自《Java并发编程的艺术》
+> Semaphore（信号量）是用来控制同时访问特定资源的线程数量，它通过协调各个线程，以保证合理的使用公共资源。  
+>
+> 多年以来，我都觉得从字面上很难理解Semaphore所表达的含义，**只能把它比作是控制流量的红绿灯**。比如××马路要限制流量，只允许同时有一百辆车在这条路上行使，其他的都必须在路口等待，所以前一百辆车会看到绿灯，可以开进这条马路，后面的车会看到红灯，不能驶入××马路，但是如果前一百辆中有5辆车已经离开了××马路，那么后面就允许有5辆车驶入马路，这个例子里说的**车就是线程，驶入马路就表示线程在执行，离开马路就表示线程执行完成，看见红灯就表示线程被阻塞，不能执行**。  
 
 #### 1 案例介绍 
 
@@ -285,4 +290,40 @@ public void release(int permits) {
 ```
 
 另外可以看到，这里的sync.releaseShared是共享方法，这说明**该信号量是线程共享的，信号量没有和固定线程绑定，多个线程可以同时使用CAS去更新信号量的值而不会被阻塞**。
+
+#### 3 应用场景
+
+来自《Java并发编程的艺术》
+
+**Semaphore可以用于做流量控制，特别是公用资源有限的应用场景，比如数据库连接**。假如有一个需求，要读取几万个文件的数据，因为都是IO密集型任务，我们可以启动几十个线程并发地读取，但是如果读到内存后，还需要存储到数据库中，而数据库的连接数只有10个，这时我们必须控制只有10个线程同时获取数据库连接保存数据，否则会报错无法获取数据库连接。这个时候，就可以使用Semaphore来做流量控制，如代码所示。  
+
+```java
+public class SemaphoreTest {
+    private static final int THREAD_COUNT = 30;
+    private static ExecutorService threadPool =Executors.newFixedThreadPool(THREAD_COUNT);
+    private static Semaphore s = new Semaphore(10);
+
+    public static void main(String[] args) {
+        for (inti = 0; i < THREAD_COUNT; i++) {
+            threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        s.acquire();
+                        System.out.println("save data");
+                        s.release();
+                    } catch (InterruptedException e) {
+                    }
+                }
+            });
+        }
+        threadPool.shutdown();
+    }
+}
+```
+
+在代码中，虽然有30个线程在执行，但是只允许10个并发执行。Semaphore的构造方法
+Semaphore（int permits）接受一个整型的数字，表示可用的许可证数量。
+
+Semaphore（10）表示允许10个线程获取许可证，也就是最大并发数是10。Semaphore的用法也很简单，**首先线程使用Semaphore的acquire()方法获取一个许可证，使用完之后调用release()方法归还许可证**。还可以用tryAcquire()方法尝试获取许可证。  
 
