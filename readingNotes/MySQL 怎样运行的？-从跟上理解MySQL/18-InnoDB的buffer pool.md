@@ -431,3 +431,4 @@ END OF INNODB MONITOR OUTPUT
 10. 自 MySQL 5.7.5 版本之后，可以在服务器运行过程中调整 Buffer Pool 大小。每个 Buffer Pool 实例由若干个 chunk 组成，每个 chunk 的大小可以在服务器启动时通过启动参数调整。
 
 11. 可以用下边的命令查看 Buffer Pool 的状态信息：`SHOW ENGINE INNODB STATUS`
+

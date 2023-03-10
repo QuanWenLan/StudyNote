@@ -2049,19 +2049,50 @@ public class AServiceImpl implements AService {
 
 在类的层级中，我们看到AnnotationAwareAspectJAutoProxyCreator实现了BeanPostProcessor接口，而实现BeanPostProcessor后，当Spring加载这个Bean时会在实例化前调用其**postProcessAfterInitialization**方法，而我们对于AOP逻辑的分析也由此开始。  
 
+在分析之前，创建bean的时候，有一个优化，分析如下。
+
+```java
+try {
+   // Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
+   Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
+   if (bean != null) {
+      return bean;
+   }
+}
+
+protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition mbd) {
+    Object bean = null;
+    if (!Boolean.FALSE.equals(mbd.beforeInstantiationResolved)) {
+        // Make sure bean class is actually resolved at this point.
+        if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
+            Class<?> targetType = determineTargetType(beanName, mbd);
+            if (targetType != null) {
+                // 在这里面会先执行 AnnotationAwareAspectJAutoProxyCreator 覆盖的发方法
+                bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
+                if (bean != null) {
+                    bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
+                }
+            }
+        }
+        mbd.beforeInstantiationResolved = (bean != null);
+    }
+    return bean;
+}
+```
+
+继续往下走则会执行到寻找当前bean是否有增强位置，调用链如下：
+
+![image-20230303145854828](media/images/image-20230303145854828.png)
+
 执行初始化之前，先执行**postProcessBeforeInstantiation**方法org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation。执行链位置：
 
 ![image-20230303143903058](media/images/image-20230303143903058.png)
 
-继续往下走则会执行到寻找当前bean是否有增强位置，如下：
-
-![image-20230303145854828](media/images/image-20230303145854828.png)
-
-最终在这里的流程（也就是下面获取增强器的源码分析部分的流程）就已经去获取增强器并放入到了缓存中。
+最终在这里的流程（也就是下面获取增强器的源码分析部分的流程）就已经去获取增强器并放入到了缓存 advisorsCache 中。
 
 ![image-20230303150206559](media/images/image-20230303150206559.png)
 
-
+org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation源码分析。
 
 ```java
 /** 目标对象源bean集合*/
@@ -2122,7 +2153,7 @@ public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName
     return null;
 }
 ```
-**核心步骤**，在父类AbstractAutoProxyCreator的**postProcessAfterInitialization**中代码如下：
+**核心步骤**，随后才是在调用 initializeBean 方法里面的后置处理器的 applyBeanPostProcessorsAfterInitialization 方法。在父类AbstractAutoProxyCreator的**postProcessAfterInitialization**中代码如下：
 
 ![image-20230303144624370](media/images/image-20230303144624370.png)
 

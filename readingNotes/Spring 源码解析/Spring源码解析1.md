@@ -2242,6 +2242,8 @@ if (bean != null) {
 
 当经过前置处理后返回的结果如果不为空，**那么会直接略过后续的Bean的创建而直接返回结果**。这一特性虽然很容易被忽略，但是却起着至关重要的作用，*我们熟知的AOP功能就是基于这里的判断的*。
 
+###### AOP在bean创建过程中的判断
+
 ```java
 // 应用实例化前的后处理器，解决指定 bean 是否有实例化前的快捷方式。 AbstractAutowireCapableBeanFactory 
 protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition mbd) {
@@ -2766,7 +2768,7 @@ if (mbd.isSingleton()) {
 }
 ```
 
-这个方法，这个方法每次创建 bean 之前都会有一个前置操作和后置操作：**beforeSingletonCreation(beanName**); 和 **afterSingletonCreation(beanName);** **后置操作在构造器的循环依赖里面是不会被调用到的。**
+这个方法，这个方法每次创建 bean 之前都会有一个前置操作和后置操作：**beforeSingletonCreation(beanName**); 和 **afterSingletonCreation(beanName)**;**后置操作在构造器的循环依赖里面是不会被调用到的**。
 
 ```java
 public Object getSingleton(String beanName, ObjectFactory<?> singletonFactory) {
@@ -3244,8 +3246,7 @@ protected Object doCreateBean(final String beanName, final RootBeanDefinition mb
          logger.trace("Eagerly caching bean '" + beanName +
                "' to allow for resolving potential circular references");
       }
-// 为避免后期循环依赖，可以在 bean 初始化完成前将创建实例的 ObjectFactory 加入工厂， AOP 就是在这里将 advice 动态织入 bean 中，若没有直接
-返回 bean，不做任何处理
+// 为避免后期循环依赖，可以在 bean 初始化完成前将创建实例的 ObjectFactory 加入工厂， AOP 就是在这里将 advice 动态织入 bean 中，若没有直接返回 bean，不做任何处理
       addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
    }
 
@@ -3540,7 +3541,9 @@ private Class<?> createEnhancedSubclass(RootBeanDefinition beanDefinition) {
 
 ###### **5.7.2 记录创建 bean 的 ObjectFactory**   
 
-在 doCreateBean 函数中有这样一段代码
+###### seeter循环依赖中aop处理逻辑
+
+在 doCreateBean 函数中有这样一段代码，在将这个逻辑放进去之后，如果有循环依赖，populateBean执行后，后面的initializeBean 是先不会执行的，而是会继续去创建对象所依赖的属性对象，比如A->B,B->A，最后再获取到A的时候会去执行这个lamada表达式的，也就是会执行创建AOP代理的过程。
 
 ```java 
  boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
@@ -3568,7 +3571,7 @@ if (earlySingletonExposure) {
   bf.setAllowCircularReferences(false);
   ```
 
-- isSingletonCurrentlyInCreation(beanName)：该bean是否在创建中。在Spring中，会有个专门的属性默认为DefaultSingletonBeanRegistry的singletonsCurrentlyInCreation来记录bean的加载状态，在bean开始创建前会将beanName记录在属性中，在bean创建结束后会将beanName从属性中移除。那么我们跟随代码一路走来可是对这个属性的记录并没有多少印象，这个状态是在哪里记录的呢？不同scope的记录位置并不一样，我们以singleton为例，在singleton下记录属性的函数是在DefaultSingletonBeanRegistry类的public ObjectgetSingleton(String beanName, ObjectFactory singletonFactory)函数的beforeSingletonCreation(beanName)和afterSingletonCreation(beanName)中，在这两段函数中分别this.singletonsCurrentlyInCreation(beanName)中，在这两段函数中分别this.singletonsCurrentlyInCreation.add(beanName)与this.singletonsCurrentlyIn Creation.remove(beanName)来进行状态的记录与移除。
+- isSingletonCurrentlyInCreation(beanName)：该bean是否在创建中。在Spring中，会有个专门的属性默认为DefaultSingletonBeanRegistry的singletonsCurrentlyInCreation来记录bean的加载状态，在bean开始创建前会将beanName记录在属性中，在bean创建结束后会将beanName从属性中移除。那么我们跟随代码一路走来可是对这个属性的记录并没有多少印象，这个状态是在哪里记录的呢？不同scope的记录位置并不一样，我们以singleton为例，在singleton下记录属性的函数是在DefaultSingletonBeanRegistry类的public Object getSingleton(String beanName, ObjectFactory singletonFactory)函数的beforeSingletonCreation(beanName)和afterSingletonCreation(beanName)中，在这两段函数中分别this.singletonsCurrentlyInCreation(beanName)中，在这两段函数中分别this.singletonsCurrentlyInCreation.add(beanName)与this.singletonsCurrentlyIn Creation.remove(beanName)来进行状态的记录与移除。
 
 当这3个条件都满足时会执行addSingletonFactory操作，**那么加入SingletonFactory的作用是什么呢？又是在什么时候调用呢？**
 

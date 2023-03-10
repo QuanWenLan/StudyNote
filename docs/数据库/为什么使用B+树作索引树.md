@@ -84,6 +84,8 @@ B树即 二叉搜索树，[二叉查找树](https://baike.baidu.com/item/二叉�
 2. **非叶子节点存储key，叶子节点存储key和数据**，**之所以这么做是因为在数据库中页的大小是固定的，InnoDB 中页的默认大小是 16KB。如果不存储数据，那么就会存储更多的键值，相应的树的阶数（节点的子节点树）就会更大，树就会更矮更胖，如此一来我们查找数据进行磁盘的 IO 次数又会再次减少，数据查询的效率也会更快**。另外，**B+ 树的阶数是等于键值的数量的，如果我们的 B+ 树一个节点可以存储 1000 个键值，那么 3 层 B+ 树可以存储 1000×1000×1000=10 亿个数据**。**一般根节点是常驻内存的，所以一般我们查找 10 亿数据，只需要 2 次磁盘 IO**。
 3. 叶子节点两两指针相互连接(符合磁盘的预读特性)，数据是按照顺序排列的。顺序查询性能更高
 
+[一文彻底搞懂MySQL基础：B树和B+树的区别](https://blog.csdn.net/a519640026/article/details/106940115)  
+
 #### InnoDB 的 B+ 树
 
 ![image-20220114122644843](media/images/image-20220114122644843.png)
@@ -94,3 +96,22 @@ MyISAM 中的 B+ 树索引实现与 InnoDB 中的略有不同。**在 MyISAM 中
 
 也可以参考一下： https://www.cnblogs.com/tiancai/p/9024351.html 
 
+#### MySQL中B+树被描述为了BTREE
+
+| Table        | Non_unique | Key_name     | Seq_in_index | Column_name | Collation | Cardinality | Sub_part | Packed | Null | Index_type | Comment | Index_comment |      |
+| ------------ | ---------- | ------------ | ------------ | ----------- | --------- | ----------- | -------- | ------ | ---- | ---------- | ------- | ------------- | ---- |
+| single_table | 0          | PRIMARY      | 1            | id          | A         | 9937        |          |        |      | BTREE      |         |               |      |
+| single_table | 0          | idx_key2     | 1            | key2        | A         | 9890        |          |        | YES  | BTREE      |         |               |      |
+| single_table | 1          | idx_key1     | 1            | key1        | A         | 9890        |          |        | YES  | BTREE      |         |               |      |
+| single_table | 1          | idx_key3     | 1            | key3        | A         | 9890        |          |        | YES  | BTREE      |         |               |      |
+| single_table | 1          | idx_key_part | 1            | key_part1   | A         | 9890        |          |        | YES  | BTREE      |         |               |      |
+| single_table | 1          | idx_key_part | 2            | key_part2   | A         | 9890        |          |        | YES  | BTREE      |         |               |      |
+| single_table | 1          | idx_key_part | 3            | key_part3   | A         | 9890        |          |        | YES  | BTREE      |         |               |      |
+
+具体为什么则是：https://blog.csdn.net/cumt_TTR/article/details/103213302 
+
+> B+TREE would be a very bad keyword, because it contains +, which is usually an operator.
+>
+> That syntax is older than InnoDB. It is probably as old as the ISAM storage engine, which exists no more. It is very possible that B-TREE was used at that time.
+
+https://dba.stackexchange.com/questions/204561/does-mysql-use-b-tree-btree-or-both 
