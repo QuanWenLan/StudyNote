@@ -78,6 +78,8 @@ InnoDB 有一个后台线程，每隔 1 秒，就会把 redo log buffer 中的�
 
 每秒一次后台轮询刷盘，再加上崩溃恢复这个逻辑，InnoDB 就认为 redo log 在 commit 的时候就不需要 fsync 了，只会 write 到文件系统的 page cache 中就够了。 
 
+#### 双1配置
+
 通常我们说 **MySQL 的“双 1”**配置，**指的就是 sync_binlog 和 innodb_flush_log_at_trx_commit 都设置成 1**。也就是说，**一个事务完整提交前，需要等待两次刷盘，一次是 redo log（prepare 阶段），一次是 binlog**。
 
 这时候，你可能有一个疑问，这意味着我从 MySQL 看到的 TPS 是每秒两万的话，每秒就会写四万次磁盘。但是，我用工具测试出来，磁盘能力也就两万左右，怎么能实现两万的 TPS？
