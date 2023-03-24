@@ -2,22 +2,10 @@
 _记录学习过程中的各种技术的笔记，包括面试时候的一些准备_  
 
 ***
-#### **目录**
 
-***
 
-- [Java](#java)
-  
-    - [基础](#基础)
-    - [持久化对象（集合、容器）](#持久化对象（集合、容器）)
-    - [IO](#IO)
-    - [JVM](#jvm)
-    - [Java8新特性](#Java8新特性) 
-    - [并发、多线程](#并发、多线程)
-    - [《Java编程思想》](#《Java编程思想》)
-    
-***
-待续。。。
+
+
 ### Java
 ***
 #### 基础
@@ -37,8 +25,7 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
 * **[8，Java内存模型与线程](docs/jvm/Java内存模型与线程.md)**  
 * **[9，线程安全和锁优化](docs/jvm/线程安全和锁优化.md)**  
 #### Java8新特性
-#### 并发、多线程
-#### 《Java编程思想》
+
 #### MySQL数据库  
 - [《MySQL 实战45讲》](docs/数据库/mysql)
   - [01一条sql查询语句是如何执行的](docs/数据库/mysql/01一条sql查询语句是如何执行的.md)  
@@ -64,16 +51,42 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [13为什么表数据删掉一半，表文件大小不变](docs/数据库/mysql/13为什么表数据删掉一半，表文件大小不变.md)   
   - [26备库为什么会延迟好几个小时](docs/数据库/mysql/26备库为什么会延迟好几个小时.md)   
   - [慢查询日志](docs/数据库/mysql/慢查询日志.md) 
+- [《MySQL 怎样运行的？-从根上理解MySQL》](readingNotes/MySQL 怎样运行的？-从跟上理解MySQL)
 
 #### Spring 
 
-- 《Spring源码深度解析》第一版 摘抄
+- 《Spring源码深度解析》第一版
   
-  - [配置文件加载，bean 加载、初始化、获取，循环依赖](docs/readingNotes/Spring 源码解析/Spring源码解析1.md)
-  - [扩展功能ClasspathXmlApplicationContext、AOP](docs/readingNotes/Spring 源码解析/Spring源码解析2.md) 
-  - [消息JMS](docs/readingNotes/Spring 源码解析/Spring源码解析3-消息.md)
-  - [事务](docs/readingNotes/Spring 源码解析/Spring源码解析4-事务.md) 
-  - [事件监听及ApplicationContext](docs/readingNotes/Spring 源码解析/Spring-ApplicationContext及事件监听解析.md) 
-  - [Aware接口](docs/readingNotes/Spring 源码解析/Spring源码解析-Aware 接口.md) 
+  - [配置文件加载，bean 加载、初始化、获取，循环依赖](readingNotes/Spring 源码解析/Spring源码解析1.md)
+  - [扩展功能ClasspathXmlApplicationContext、AOP](readingNotes/Spring 源码解析/Spring源码解析2.md) 
+  - [消息JMS](readingNotes/Spring 源码解析/Spring源码解析3-消息.md)
+  - [事务](readingNotes/Spring 源码解析/Spring源码解析4-事务.md) 
+  - [事件监听及ApplicationContext](readingNotes/Spring 源码解析/Spring-ApplicationContext及事件监听解析.md) 
+  - [Aware接口](readingNotes/Spring 源码解析/Spring源码解析-Aware 接口.md) 
 
+#### Redis 
+
+[《redis核心技术与实战》](readingNotes/redis 核心技术与实战/目录.md) 
+
+#### 并发
+
+[《并发编程之美》](readingNotes/并发编程之美)
+
+[《并发编程的艺术》](readingNotes/并发编程的艺术)
+
+[completableFuture使用](docs/java/并发/completableFuture使用.md)
+
+[concurrentHashMap原理](docs/java/并发/concurrentHashMap原理.md)
+
+#### 网络
+
+[《图解HTTP》](readingNotes/图解HTTP)
+
+#### 中间件
+
+[rabbit mq](docs/rabbitmq)
+
+#### 算法
+
+[《小灰的算法学习之旅》](docs/算法/小灰的算法之旅-学习.md)
 

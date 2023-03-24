@@ -1,4 +1,6 @@
-#### 对于二进制转换类的题目   
+## 秘籍
+
+### 对于二进制转换类的题目   
 
 > **对于一般性的进制转换题目，只需要不断地对columnNumber 进行 % 运算取得最后一位，然后对 columnNumber 进行 / 运算，将已经取得的位数去掉，直到 columnNumber 为 0 即可.**
 >
@@ -32,7 +34,7 @@
 
 ----
 
-#### 解题三部曲
+### 解题三部曲
 
 ##### **1. 看懂题目**
 
@@ -69,21 +71,24 @@
 
 ---
 
-#### 递归分析三部曲 
 
-1. 确定递归函数的参数和返回类型
 
-   （**如果需要遍历整颗树，递归函数就不能有返回值。如果需要遍历某一条固定路线，递归函数就一定要有返回值！**）
+### 递归分析三部曲 
 
-2. 确定终止条件
+##### 1 确定递归函数的参数和返回类型
 
-3. 确定单层递归时的逻辑
+（**如果需要遍历整颗树，递归函数就不能有返回值。如果需要遍历某一条固定路线，递归函数就一定要有返回值！**）
 
-> 如： https://leetcode-cn.com/problems/path-sum/comments/ 
+##### 2 确定终止条件
+
+##### 3 确定单层递归时的逻辑
+
+> 如：[112 路径总和](https://leetcode.cn/problems/path-sum/)，[找树左下角的值](https://mp.weixin.qq.com/s/MH2gbLvzQ91jHPKqiub0Nw)
 >
-> https://mp.weixin.qq.com/s/MH2gbLvzQ91jHPKqiub0Nw
 
 ---
+
+### 二叉树
 
 #### 写递归算法的秘诀  
 
@@ -114,37 +119,6 @@ int count(TreeNode root) {
 所谓**「该做什么」就是让你想清楚写什么代码能够实现题目想要的效果**，**所谓「什么时候做」，就是让你思考这段代码到底应该写在前序、中序还是后序遍历的代码位置上**。   
 
 > 二叉树题目的一个难点就是，如何把题目的要求细化成每个节点需要做的事情
-
-
-
-#### 二分查找
-
-##### 题目编号
-
-- [704. 二分查找](https://leetcode-cn.com/problems/binary-search/) （已写）
-- [278. 第一个错误的版本](https://leetcode-cn.com/problems/first-bad-version/) （已写）
-- [35. 搜索插入位置](https://leetcode-cn.com/problems/search-insert-position/) （已写）
-
-
-
-
-
-
-
-
-
-#### 双指针
-
-- [977. 有序数组的平方](https://leetcode-cn.com/problems/squares-of-a-sorted-array/)  （已写）数组
-- [189. 旋转数组](https://leetcode-cn.com/problems/rotate-array/) （已写）数组
-- [283. 移动零](https://leetcode-cn.com/problems/move-zeroes/) （已写）数组
-- [167. 两数之和 2-输入有序数组](https://leetcode-cn.com/problems/two-sum-ii-input-array-is-sorted/) （已写）数组
-- [344. 反转字符串](https://leetcode-cn.com/problems/reverse-string/) （已写） 数组
-- [557. 反转字符串中的单词 III](https://leetcode-cn.com/problems/reverse-words-in-a-string-iii/) （已写）数组
-- [876. 链表的中间结点](https://leetcode-cn.com/problems/middle-of-the-linked-list/) （已写）链表
-- [19. 删除链表的倒数第 N 个节点](https://leetcode-cn.com/problems/remove-nth-node-from-end-of-list/)  （已写）链表 
-- [11. 盛最多水的容器](https://leetcode-cn.com/problems/container-with-most-water) （已写） 数组
-- [15. 三数之和](https://leetcode-cn.com/problems/3sum) （已写） 数组
 
 
 

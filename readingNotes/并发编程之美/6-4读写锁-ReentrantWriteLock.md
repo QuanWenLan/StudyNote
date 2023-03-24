@@ -47,12 +47,27 @@ static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
 // 排它锁（写锁）掩码，二进制，15个1
 static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
 /** Returns the number of shared holds represented in count  */
-// 返回读线程数
+// 返回读线程数，右移16位
 static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }
 /** Returns the number of exclusive holds represented in count  */
 // 返回写锁可重入数
 static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }
 
+```
+
+![image-20230323155819972](media/images/image-20230323155819972.png)
+
+读锁的个数计算：**直接无符号位右移16位**，上图是3个。写锁的个数（独占锁）计算：(1<<16)-1
+
+```java
+// 1的二进制
+0000 0000 0000 0000 0000 0000 0000 0001      
+// 1左移 16位
+0000 0000 0000 0001 0000 0000 0000 0000
+//再减 1
+0000 0000 0000 0000 1111 1111 1111 1111
+//任何一个 32位二进制数 c，和以上值做 “与” 运算都为它本身 c 的低 16 位值
+//这个不用解释了吧，这个不会的话，需要好好补充一下基础知识了。。。
 ```
 
 其中，**firstReader**用来记录第一个获取到读锁的线程，**firstReaderHoldCount**则记录第一个获取到读锁的线程获取读锁的可重入次数。**cachedHoldCounter**用来记录最后一个获取读锁的线程获取读锁的可重入次数。

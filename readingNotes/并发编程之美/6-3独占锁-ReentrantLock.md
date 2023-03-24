@@ -29,7 +29,7 @@ public ReentrantLock(boolean fair) {
 
 **当一个线程调用该方法时，说明该线程希望获取该锁**。如果锁当前没有被其他线程占用并且当前线程之前没有获取过该锁，则当前线程会获取到该锁，然后设置当前锁的拥有者为当前线程，并设置AQS的状态值为1，然后直接返回。如果当前线程之前已经获取过该锁，则这次只是简单地把AQS的状态值加1后返回。如果该锁已经被其他线程持有，则调用该方法的线程会被放入AQS队列后阻塞挂起。
 
-以 非公平锁为例
+###### 以 非公平锁为例
 
 ```java
 static final class NonfairSync extends Sync {
@@ -99,7 +99,7 @@ final boolean nonfairTryAcquire(int acquires) {
 
 ---
 
-公平锁
+###### 公平锁
 
 ```java
 protected final boolean tryAcquire(int acquires) {
