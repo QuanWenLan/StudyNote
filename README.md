@@ -21,9 +21,9 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
 * **[4，理解GC日志](docs/java/jvm/理解GC日志.md)**  
 * **[5，虚拟机性能监控工具 ](docs/java/jvm/虚拟机性能监控和故障处理工具.md)**  
 * **[6，类文件结构](docs/java/jvm/类文件结构.md)**  
-* **[7，类初始化和加载机制](docs/java/jvm/类加载机制.md)**  
-* **[8，Java内存模型与线程](docs/jvm/Java内存模型与线程.md)**  
-* **[9，线程安全和锁优化](docs/jvm/线程安全和锁优化.md)**  
+* **[7，类初始化和加载机制](docs/java/java/jvm/类加载机制.md)**  
+* **[8，Java内存模型与线程](docs/java/jvm/Java内存模型与线程.md)**  
+* **[9，线程安全和锁优化](docs/java/jvm/线程安全和锁优化.md)**  
 #### Java8新特性
 
 #### MySQL数据库  
@@ -51,22 +51,25 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [13为什么表数据删掉一半，表文件大小不变](docs/数据库/mysql/13为什么表数据删掉一半，表文件大小不变.md)   
   - [26备库为什么会延迟好几个小时](docs/数据库/mysql/26备库为什么会延迟好几个小时.md)   
   - [慢查询日志](docs/数据库/mysql/慢查询日志.md) 
-- [《MySQL 怎样运行的？-从根上理解MySQL》](readingNotes/MySQL 怎样运行的？-从跟上理解MySQL)
+
+- [《MySQL 怎样运行的？-从根上理解MySQL》](readingNotes/MySQL 怎样运行的-从跟上理解MySQL)
 
 #### Spring 
 
-- 《Spring源码深度解析》第一版
-  
-  - [配置文件加载，bean 加载、初始化、获取，循环依赖](readingNotes/Spring 源码解析/Spring源码解析1.md)
-  - [扩展功能ClasspathXmlApplicationContext、AOP](readingNotes/Spring 源码解析/Spring源码解析2.md) 
-  - [消息JMS](readingNotes/Spring 源码解析/Spring源码解析3-消息.md)
-  - [事务](readingNotes/Spring 源码解析/Spring源码解析4-事务.md) 
-  - [事件监听及ApplicationContext](readingNotes/Spring 源码解析/Spring-ApplicationContext及事件监听解析.md) 
-  - [Aware接口](readingNotes/Spring 源码解析/Spring源码解析-Aware 接口.md) 
+- [《Spring源码深度解析》](readingNotes/Spring源码解析/)（第一版）
+  - [配置文件加载，bean 加载、初始化、获取，循环依赖](readingNotes/Spring源码解析/Spring源码解析1-bean解析和加载.md)
+  - [循环依赖](readingNotes/Spring源码解析/Spring源码解析6-循环依赖.md)
+  - [AOP](readingNotes/Spring源码解析/Spring源码解析5-AOP.md)
+  - [AOP-CGLIB的执行源码解析](readingNotes/Spring源码解析/AOP-cglib执行源码解析.md)
+  - [扩展功能](readingNotes/Spring源码解析/Spring源码解析2-bean扩展.md) 
+  - [消息JMS](readingNotes/Spring源码解析/Spring源码解析3-消息.md)
+  - [事务](readingNotes/Spring源码解析/Spring源码解析4-事务.md) 
+  - [事件监听及ApplicationContext](readingNotes/Spring源码解析/SpringApplicationContext及事件监听解析.md) 
+  - [Aware接口](readingNotes/Spring源码解析/Spring源码解析-Aware 接口.md) 
 
 #### Redis 
 
-[《redis核心技术与实战》](readingNotes/redis 核心技术与实战/目录.md) 
+[《redis核心技术与实战》](readingNotes/redis核心技术与实战/目录.md) 
 
 #### 并发
 
@@ -82,6 +85,16 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
 
 [《图解HTTP》](readingNotes/图解HTTP)
 
+[《网络是怎样连接的》](readingNotes/网络是怎样连接的)
+- [生成http请求底层](readingNotes/网络是怎样连接的/1-1生成发送http请求底层.md)
+- [DNS服务器](readingNotes/网络是怎样连接的/1-2DNS服务器.md)
+- [委托操作系统和协议栈发送消息](readingNotes/网络是怎样连接的/1-3委托操作系统和协议栈发送消息.md)
+- [创建-连接-收发数据](readingNotes/网络是怎样连接的/2-1协议栈和网卡-创建-连接-收发数据.md) 包含下面几个信息
+  - 创建socket，客户端与连接连接（三次握手过程）
+  - 断开连接（四次挥手过程）
+  - 收发数据与滑动窗口
+- [IP-以太网的包收发操作](readingNotes/网络是怎样连接的/2-2协议栈和网卡-IP与以太网的包收发操作.md)
+- [UDP协议收发操作](readingNotes/网络是怎样连接的/2-3协议栈和网卡-UDP协议收发操作.md)
 #### 中间件
 
 [rabbit mq](docs/rabbitmq)

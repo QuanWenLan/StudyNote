@@ -79,9 +79,10 @@ static class Handler implements Runnable {
 Java的NIO模式的Selector网络通讯，其实就是一个简单的Reactor模型，可以说是Reactor模型的朴素原型。
 
 ```java
-static class Server{
-    public static void testServer() throws IOException
-    {
+public class Server {
+    private static final int SOCKET_SERVER_PORT = 8081;
+
+    public static void testServer() throws IOException {
         // 1、获取Selector选择器
         Selector selector = Selector.open();
         // 2、获取通道
@@ -89,38 +90,32 @@ static class Server{
         // 3.设置为非阻塞
         serverSocketChannel.configureBlocking(false);
         // 4、绑定连接
-        serverSocketChannel.bind(new InetSocketAddress(SystemConfig.SOCKET_SERVER_PORT));
+        serverSocketChannel.bind(new InetSocketAddress(SOCKET_SERVER_PORT));
         // 5、将通道注册到选择器上,并注册的操作为：“接收”操作
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
         // 6、采用轮询的方式，查询获取“准备就绪”的注册过的操作
-        while (selector.select() > 0)
-        {
+        while (selector.select() > 0) {
             // 7、获取当前选择器中所有注册的选择键（“已经准备就绪的操作”）
             Iterator<SelectionKey> selectedKeys = selector.selectedKeys().iterator();
-            while (selectedKeys.hasNext())
-            {
+            while (selectedKeys.hasNext()) {
                 // 8、获取“准备就绪”的时间
                 SelectionKey selectedKey = selectedKeys.next();
 
                 // 9、判断key是具体的什么事件
-                if (selectedKey.isAcceptable())
-                {
+                if (selectedKey.isAcceptable()) {
                     // 10、若接受的事件是“接收就绪” 操作,就获取客户端连接
                     SocketChannel socketChannel = serverSocketChannel.accept();
                     // 11、切换为非阻塞模式
                     socketChannel.configureBlocking(false);
                     // 12、将该通道注册到selector选择器上
                     socketChannel.register(selector, SelectionKey.OP_READ);
-                }
-                else if (selectedKey.isReadable())
-                {
+                } else if (selectedKey.isReadable()) {
                     // 13、获取该选择器上的“读就绪”状态的通道
                     SocketChannel socketChannel = (SocketChannel) selectedKey.channel();
                     // 14、读取数据
                     ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
                     int length = 0;
-                    while ((length = socketChannel.read(byteBuffer)) != -1)
-                    {
+                    while ((length = socketChannel.read(byteBuffer)) != -1) {
                         byteBuffer.flip();
                         System.out.println(new String(byteBuffer.array(), 0, length));
                         byteBuffer.clear();
@@ -135,8 +130,7 @@ static class Server{
         serverSocketChannel.close();
     }
 
-    public static void main(String[] args) throws IOException
-    {
+    public static void main(String[] args) throws IOException {
         testServer();
     }
 }
@@ -161,179 +155,171 @@ static class Server{
 ##### 单线程 Reactor 的参考代码
 
 ```java
-package com.crazymakercircle.ReactorModel;
+package com.lanwq.networkprogramming.reactor;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
-class Reactor implements Runnable
-{
-final Selector selector;
-final ServerSocketChannel serverSocket;
-Reactor(int port) throws IOException
-{ //Reactor初始化
-    selector = Selector.open();
-    serverSocket = ServerSocketChannel.open();
-    serverSocket.socket().bind(new InetSocketAddress(port));
-    //非阻塞
-    serverSocket.configureBlocking(false);
 
-    //分步处理,第一步,接收accept事件
-    SelectionKey sk =
-            serverSocket.register(selector, SelectionKey.OP_ACCEPT);
-    //attach callback object, Acceptor
-    sk.attach(new Acceptor());
-}
+/**
+ * @author Vin lan
+ * @className SingleThreadReactor
+ * @description 单线程的 Reactor 模式
+ * @createTime 2023-03-28  10:18
+ * <p>
+ * （1）Reactor：负责响应IO事件，当检测到一个新的事件，将其发送给相应的Handler去处理**；新的事件包含连接建立就绪、读就绪、写就绪等。
+ * <p>
+ * （2）Handler：将自身（handler）与事件绑定，负责事件的处理，完成channel的读入，完成处理业务逻辑后，负责将结果写出channel。
+ **/
+public class SingleThreadReactor implements Runnable {
+    private final Selector selector;
+    private final ServerSocketChannel serverSocket;
 
-public void run()
-{
-    try
-    {
-        while (!Thread.interrupted())
-        {
-            selector.select();
-            Set selected = selector.selectedKeys();
-            Iterator it = selected.iterator();
-            while (it.hasNext())
-            {
-                //Reactor负责dispatch收到的事件
-                dispatch((SelectionKey) (it.next()));
+    SingleThreadReactor(int port) throws IOException {
+        //Reactor初始化
+        selector = Selector.open();
+        serverSocket = ServerSocketChannel.open();
+        serverSocket.socket().bind(new InetSocketAddress(port));
+        //非阻塞
+        serverSocket.configureBlocking(false);
+        //分步处理,第一步,接收accept事件
+        SelectionKey sk = serverSocket.register(selector, SelectionKey.OP_ACCEPT);
+        //attach callback object, Acceptor
+        sk.attach(new Acceptor());
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (!Thread.interrupted()) {
+                selector.select();
+                Set selected = selector.selectedKeys();
+                Iterator it = selected.iterator();
+                while (it.hasNext()) {
+                    //Reactor负责dispatch收到的事件
+                    dispatch((SelectionKey) (it.next()));
+                }
+                selected.clear();
             }
-            selected.clear();
+        } catch (IOException ex) { /* ... */ }
+    }
+
+    private void dispatch(SelectionKey k) {
+        Runnable r = (Runnable) (k.attachment());
+        //调用之前注册的callback对象
+        if (r != null) {
+            r.run();
         }
-    } catch (IOException ex)
-    { /* ... */ }
-}
-
-void dispatch(SelectionKey k)
-{
-    Runnable r = (Runnable) (k.attachment());
-    //调用之前注册的callback对象
-    if (r != null)
-    {
-        r.run();
     }
-}
 
-// inner class
-class Acceptor implements Runnable
-{
-    public void run()
-    {
-        try
-        {
-            SocketChannel channel = serverSocket.accept();
-            if (channel != null)
-                new Handler(selector, channel);
-        } catch (IOException ex)
-        { /* ... */ }
+    /**
+     * inner class
+     */
+    class Acceptor implements Runnable {
+        @Override
+        public void run() {
+            try {
+                SocketChannel channel = serverSocket.accept();
+                if (channel != null) {
+                    new SingleThreadHandler(selector, channel);
+                }
+            } catch (IOException ex) { /* ... */ }
+        }
     }
-}
-
 }
 ```
 
 handle 代码如下:
 
 ```java
-package com.crazymakercircle.ReactorModel;
-import com.crazymakercircle.config.SystemConfig;
+package com.lanwq.networkprogramming.reactor;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
-class Handler implements Runnable
-{
-final SocketChannel channel;
-final SelectionKey sk;
-ByteBuffer input = ByteBuffer.allocate(SystemConfig.INPUT_SIZE);
-ByteBuffer output = ByteBuffer.allocate(SystemConfig.SEND_SIZE);
-static final int READING = 0, SENDING = 1;
-int state = READING;
-    
-Handler(Selector selector, SocketChannel c) throws IOException
-{
-    channel = c;
-    c.configureBlocking(false);
-    // Optionally try first read now
-    sk = channel.register(selector, 0);
 
-    //将Handler作为callback对象
-    sk.attach(this);
+/**
+ * @author Vin lan
+ * @className SingleThreadHandler
+ * @description
+ * @createTime 2023-03-28  10:19
+ **/
+public class SingleThreadHandler implements Runnable {
+    private final SocketChannel channel;
+    private final SelectionKey sk;
+    private ByteBuffer input = ByteBuffer.allocate(SystemConfig.INPUT_SIZE);
+    private ByteBuffer output = ByteBuffer.allocate(SystemConfig.SEND_SIZE);
+    private static final int READING = 0, SENDING = 1;
+    private int state = READING;
 
-    //第二步,注册Read就绪事件
-    sk.interestOps(SelectionKey.OP_READ);
-    selector.wakeup();
-}
-
-boolean inputIsComplete()
-{
-    /* ... */
-    return false;
-}
-
-boolean outputIsComplete()
-{
-
-    /* ... */
-    return false;
-}
-
-void process()
-{
-    /* ... */
-    return;
-}
-
-public void run()
-{
-    try
-    {
-        if (state == READING)
-        {
-            read();
-        }
-        else if (state == SENDING)
-        {
-            send();
-        }
-    } catch (IOException ex)
-    { /* ... */ }
-}
-
-void read() throws IOException
-{
-    channel.read(input);
-    if (inputIsComplete())
-    {
-
-        process();
-
-        state = SENDING;
-        // Normally also do first write now
-
-        //第三步,接收write就绪事件
-        sk.interestOps(SelectionKey.OP_WRITE);
+    SingleThreadHandler(Selector selector, SocketChannel c) throws IOException {
+        channel = c;
+        c.configureBlocking(false);
+        // Optionally try first read now
+        sk = channel.register(selector, 0);
+        //将Handler作为callback对象
+        sk.attach(this);
+        //第二步,注册Read就绪事件
+        sk.interestOps(SelectionKey.OP_READ);
+        selector.wakeup();
     }
-}
 
-void send() throws IOException
-{
-    channel.write(output);
-
-    //write完就结束了, 关闭select key
-    if (outputIsComplete())
-    {
-        sk.cancel();
+    private boolean inputIsComplete() {
+        /* ... */
+        return false;
     }
-}
 
+    private boolean outputIsComplete() {
+
+        /* ... */
+        return false;
+    }
+
+    private void process() {
+        /* ... */
+        return;
+    }
+
+    @Override
+    public void run() {
+        try {
+            if (state == READING) {
+                read();
+            } else if (state == SENDING) {
+                send();
+            }
+        } catch (IOException ex) { /* ... */ }
+    }
+
+    private void read() throws IOException {
+        channel.read(input);
+        if (inputIsComplete()) {
+
+            process();
+
+            state = SENDING;
+            // Normally also do first write now
+
+            //第三步,接收write就绪事件
+            sk.interestOps(SelectionKey.OP_WRITE);
+        }
+    }
+
+    private void send() throws IOException {
+        channel.write(output);
+
+        //write完就结束了, 关闭select key
+        if (outputIsComplete()) {
+            sk.cancel();
+        }
+    }
 }
 ```
 
@@ -364,8 +350,8 @@ void send() throws IOException
 ##### 多线程的Reactor 的参考代码
 
 ```java
-package com.crazymakercircle.ReactorModel;
-import com.crazymakercircle.config.SystemConfig;
+package com.lanwq.networkprogramming.reactor;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -373,107 +359,99 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-class MthreadHandler implements Runnable
-{
-final SocketChannel channel;
-final SelectionKey selectionKey;
-ByteBuffer input = ByteBuffer.allocate(SystemConfig.INPUT_SIZE);
-ByteBuffer output = ByteBuffer.allocate(SystemConfig.SEND_SIZE);
-static final int READING = 0, SENDING = 1;
-int state = READING;
-ExecutorService pool = Executors.newFixedThreadPool(2);
-static final int PROCESSING = 3;
 
-MthreadHandler(Selector selector, SocketChannel c) throws IOException
-{
-    channel = c;
-    c.configureBlocking(false);
-    // Optionally try first read now
-    selectionKey = channel.register(selector, 0);
+/**
+ * @author Vin lan
+ * @className MulThreadReactor
+ * @description 多线程的 Reactor 模式
+ * @createTime 2023-03-28  10:29
+ * （1）将Handler处理器的执行放入线程池，多线程进行业务处理。
+ * <p>
+ * （2）而对于Reactor而言，可以仍为单个线程。如果服务器为多核的CPU，为充分利用系统资源，可以将Reactor拆分为两个线程。
+ **/
+public class MulThreadReactor implements Runnable {
+    private final SocketChannel channel;
+    private final SelectionKey selectionKey;
+    private ByteBuffer input = ByteBuffer.allocate(SystemConfig.INPUT_SIZE);
+    private ByteBuffer output = ByteBuffer.allocate(SystemConfig.SEND_SIZE);
+    private static final int READING = 0, SENDING = 1;
+    private int state = READING;
+    private ExecutorService pool = Executors.newFixedThreadPool(2);
+    private static final int PROCESSING = 3;
 
-    //将Handler作为callback对象
-    selectionKey.attach(this);
+    MulThreadReactor(Selector selector, SocketChannel c) throws IOException {
+        channel = c;
+        c.configureBlocking(false);
+        // Optionally try first read now
+        selectionKey = channel.register(selector, 0);
+        //将Handler作为callback对象
+        selectionKey.attach(this);
+        //第二步,注册Read就绪事件
+        selectionKey.interestOps(SelectionKey.OP_READ);
+        selector.wakeup();
+    }
 
-    //第二步,注册Read就绪事件
-    selectionKey.interestOps(SelectionKey.OP_READ);
-    selector.wakeup();
-}
+    private boolean inputIsComplete() {
+        /* ... */
+        return false;
+    }
 
-boolean inputIsComplete()
-{
-   /* ... */
-    return false;
-}
+    private boolean outputIsComplete() {
 
-boolean outputIsComplete()
-{
+        /* ... */
+        return false;
+    }
 
-   /* ... */
-    return false;
-}
+    private void process() {
+        /* ... */
+        return;
+    }
 
-void process()
-{
-   /* ... */
-    return;
-}
+    @Override
+    public void run() {
+        try {
+            if (state == READING) {
+                read();
+            } else if (state == SENDING) {
+                send();
+            }
+        } catch (IOException ex) { /* ... */ }
+    }
 
-public void run()
-{
-    try
-    {
-        if (state == READING)
-        {
-            read();
+
+    private synchronized void read() throws IOException {
+        // ...
+        channel.read(input);
+        if (inputIsComplete()) {
+            state = PROCESSING;
+            //使用线程pool异步执行
+            pool.execute(new Processor());
         }
-        else if (state == SENDING)
-        {
-            send();
+    }
+
+    private void send() throws IOException {
+        channel.write(output);
+
+        //write完就结束了, 关闭select key
+        if (outputIsComplete()) {
+            selectionKey.cancel();
         }
-    } catch (IOException ex)
-    { /* ... */ }
-}
-
-
-synchronized void read() throws IOException
-{
-    // ...
-    channel.read(input);
-    if (inputIsComplete())
-    {
-        state = PROCESSING;
-        //使用线程pool异步执行
-        pool.execute(new Processer());
     }
-}
 
-void send() throws IOException
-{
-    channel.write(output);
-
-    //write完就结束了, 关闭select key
-    if (outputIsComplete())
-    {
-        selectionKey.cancel();
+    private synchronized void processAndHandOff() {
+        process();
+        state = SENDING;
+        // or rebind attachment
+        //process完,开始等待write就绪
+        selectionKey.interestOps(SelectionKey.OP_WRITE);
     }
-}
 
-synchronized void processAndHandOff()
-{
-    process();
-    state = SENDING;
-    // or rebind attachment
-    //process完,开始等待write就绪
-    selectionKey.interestOps(SelectionKey.OP_WRITE);
-}
-
-class Processer implements Runnable
-{
-    public void run()
-    {
-        processAndHandOff();
+    class Processor implements Runnable {
+        @Override
+        public void run() {
+            processAndHandOff();
+        }
     }
-}
 
 }
 ```
@@ -485,88 +463,84 @@ Reactor 类没有大的变化，参考前面的代码。
 对于多个CPU的机器，为充分利用系统资源，将Reactor拆分为两部分。代码如下：
 
 ```java
-package com.crazymakercircle.ReactorModel;
+package com.lanwq.networkprogramming.reactor;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
-class MthreadReactor implements Runnable
-{
-//subReactors集合, 一个selector代表一个subReactor
-Selector[] selectors=new Selector[2];
-int next = 0;
-final ServerSocketChannel serverSocket;
 
-MthreadReactor(int port) throws IOException
-{ //Reactor初始化
-    selectors[0]=Selector.open();
-    selectors[1]= Selector.open();
-    serverSocket = ServerSocketChannel.open();
-    serverSocket.socket().bind(new InetSocketAddress(port));
-    //非阻塞
-    serverSocket.configureBlocking(false);
+/**
+ * @author Vin lan
+ * @className MulReactor
+ * @description 对于多个CPU的机器，为充分利用系统资源，将Reactor拆分为两部分
+ * @createTime 2023-03-28  10:34
+ **/
+public class MulReactor implements Runnable {
+    /**
+     *  subReactors集合, 一个selector代表一个subReactor
+     */
+    private Selector[] selectors = new Selector[2];
+    private int next = 0;
+    private final ServerSocketChannel serverSocket;
 
+    MulReactor(int port) throws IOException {
+        //Reactor初始化
+        selectors[0] = Selector.open();
+        selectors[1] = Selector.open();
+        serverSocket = ServerSocketChannel.open();
+        serverSocket.socket().bind(new InetSocketAddress(port));
+        //非阻塞
+        serverSocket.configureBlocking(false);
+        //分步处理,第一步,接收accept事件
+        SelectionKey sk = serverSocket.register(selectors[0], SelectionKey.OP_ACCEPT);
+        //attach callback object, Acceptor
+        sk.attach(new Acceptor());
+    }
 
-    //分步处理,第一步,接收accept事件
-    SelectionKey sk =
-            serverSocket.register( selectors[0], SelectionKey.OP_ACCEPT);
-    //attach callback object, Acceptor
-    sk.attach(new Acceptor());
-}
-
-public void run()
-{
-    try
-    {
-        while (!Thread.interrupted())
-        {
-            for (int i = 0; i <span style="color: #0000ff;"><</span>2 ; i++)
-            {
-                selectors[i].select();
-                Set selected =  selectors[i].selectedKeys();
-                Iterator it = selected.iterator();
-                while (it.hasNext())
-                {
-                    //Reactor负责dispatch收到的事件
-                    dispatch((SelectionKey) (it.next()));
+    @Override
+    public void run() {
+        try {
+            while (!Thread.interrupted()) {
+                for (int i = 0; i < 2; i++) {
+                    selectors[i].select();
+                    Set selected = selectors[i].selectedKeys();
+                    Iterator it = selected.iterator();
+                    while (it.hasNext()) {
+                        //Reactor负责dispatch收到的事件
+                        dispatch((SelectionKey) (it.next()));
+                    }
+                    selected.clear();
                 }
-                selected.clear();
+
             }
-
-        }
-    } catch (IOException ex)
-    { /* ... */ }
-}
-
-void dispatch(SelectionKey k)
-{
-    Runnable r = (Runnable) (k.attachment());
-    //调用之前注册的callback对象
-    if (r != null)
-    {
-        r.run();
+        } catch (IOException ex) { /* ... */ }
     }
-}
 
-
-class Acceptor { // ...
-    public synchronized void run() throws IOException
-    {
-        SocketChannel connection =
-                serverSocket.accept(); //主selector负责accept
-        if (connection != null)
-        {
-            new Handler(selectors[next], connection); //选个subReactor去负责接收到的connection
+    private void dispatch(SelectionKey k) {
+        Runnable r = (Runnable) (k.attachment());
+        //调用之前注册的callback对象
+        if (r != null) {
+            r.run();
         }
-        if (++next == selectors.length) next = 0;
     }
-}
-
+    
+    class Acceptor { // ...
+        public synchronized void run() throws IOException {
+            SocketChannel connection =
+                    serverSocket.accept(); //主selector负责accept
+            if (connection != null) {
+                new SingleThreadHandler(selectors[next], connection); //选个subReactor去负责接收到的connection
+            }
+            if (++next == selectors.length) {
+                next = 0;
+            }
+        }
+    }
 }
 ```
 
