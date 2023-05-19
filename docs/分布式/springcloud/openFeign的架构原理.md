@@ -1,4 +1,4 @@
-[02.Feign架构剖析 (passjava.cn)](http://www.passjava.cn/#/02.SpringCloud/03.Feign远程调用/02.Feign架构剖析) 
+ 学习参考博客：[02.Feign架构剖析 (passjava.cn)](http://www.passjava.cn/#/02.SpringCloud/03.Feign远程调用/02.Feign架构剖析)  
 
 **第一步**：Member 服务需要定义一个 OpenFeign 接口：
 
@@ -64,7 +64,7 @@ studyTimeFeignService.getMemberStudyTimeListTest(id);
 
 通过上面的示例，我们知道，加了 @FeignClient 注解的接口后，我们就可以调用它定义的接口，然后就可以调用到远程服务了。
 
-#### 核心流程 
+#### 1 核心流程 
 
 ![image-20230407164154133](media/images/image-20230407164154133.png)
 
@@ -77,7 +77,7 @@ studyTimeFeignService.getMemberStudyTimeListTest(id);
 - 7、经过负载均衡算法找到一个服务的 IP 地址，拼接出请求的 URL。
 - 8、服务 B 处理服务 A 发起的远程调用请求，执行业务逻辑后，返回响应给服务 A。
 
-#### OpenFeign 包扫描原理
+#### 2 OpenFeign 包扫描原理
 
 （1）开启注解：`@EnableFeignClients(basePackages = "com.lanwq.passjava.member.feign")`，并开启了OpenFeign 组件的加载，通过注解中的源码可以发现导入了一个类`FeignClientsRegistrar` 。
 
@@ -105,7 +105,7 @@ public @interface EnableFeignClients {
 }
 ```
 
-（2）FeignClientsRegistrar 负责 Feign 接口的加载。
+（2）FeignClientsRegistrar 负责 Feign 接口的加载。启动springboot的时候会走到这里来。
 
 ```java
 @Override
@@ -117,6 +117,10 @@ public void registerBeanDefinitions(AnnotationMetadata metadata,
    registerFeignClients(metadata, registry);
 }
 ```
+
+![image-20230428171654932](media/images/image-20230428171654932.png)
+
+根据启动的这个注解去注册相关的配置。
 
 （3）registerFeignClients 会扫描指定包。
 
@@ -145,6 +149,26 @@ public void registerFeignClients(AnnotationMetadata metadata,
    
 ```
 
+根据 EnableFeignClients 获取到的属性。这个注解在启动类上有`@EnableFeignClients`
+
+![image-20230509172115444](media/images/image-20230509172115444.png)
+
+根据这个basepackages去获取所有的package。
+
+![image-20230509172306395](media/images/image-20230509172306395.png)
+
+![image-20230509172405385](media/images/image-20230509172405385.png)
+
+获取到指定的加了注解的类。
+
+```java
+@FeignClient("passjava-study")
+public interface StudyTimeFeignService {
+    @RequestMapping("study/smsstudytime/member/list/test/{id}")
+    public R getMemberStudyTimeListTest(@PathVariable("id") Long id);
+}
+```
+
 （4）只保留带有 @FeignClient 的接口。
 
 ```java
@@ -158,7 +182,11 @@ if (candidateComponent instanceof AnnotatedBeanDefinition) {
          "@FeignClient can only be specified on an interface");
 ```
 
-#### 注册FeignClient到Spring的原理
+可以看到最后会获取到 `passjava-study`，这个服务的name，并将配置注册到springboot中。
+
+![image-20230509172703598](media/images/image-20230509172703598.png)
+
+#### 3 注册FeignClient到Spring的原理
 
 registerFeignClient 方法中，当 FeignClient 扫描完后，就要为这些 FeignClient 接口生成一个动态代理对象。
 
@@ -254,7 +282,7 @@ private StudyTimeFeignService studyTimeFeignService;
 studyTimeFeignService.getMemberStudyTimeListTest(id);
 ```
 
-#### OpenFeign动态代理原理
+#### 4 OpenFeign动态代理原理
 
 在创建 FeignClient Bean 的过程中就会去生成动态代理对象。调用接口时，其实就是调用动态代理对象的方法来发起请求的。分析动态代理的入口方法为 getObject()。源码如下所示：
 
@@ -306,6 +334,8 @@ public class ReflectiveFeign extends Feign {
 }
 ```
 
+![image-20230509173549144](media/images/image-20230509173549144.png)
+>
 > ReflectiveFeign 做的工作就是为带有 @FeignClient 注解的接口，创建出接口方法的动态代理对象。
 
 比如示例代码中的接口 StudyTimeFeignService，会给这个接口中的方法 getMemberStudyTimeList 创建一个动态代理对象。
@@ -318,6 +348,8 @@ public interface StudyTimeFeignService {
 }
 ```
 
+![image-20230509173703665](media/images/image-20230509173703665.png)
+
 创建动态代理的原理图如下所示：
 
 ![image-20230407172633892](media/images/image-20230407172633892.png)
@@ -327,3 +359,140 @@ public interface StudyTimeFeignService {
 - 然后会生成一个 InvocationHandler 用来管理这个 hashMap，其中 Dispatch 指向这个 HashMap。
 - 然后使用 Java 的 JDK 原生的动态代理，实现了 FeignClient 接口的动态代理 Proxy 对象。这个 Proxy 会添加到 Spring 容器中。
 - 当要调用接口方法时，其实会调用动态代理 Proxy 对象的 methodHandler 来发送请求。
+
+#### 5 解析 MVC 注解的原理
+
+比如 @RequestMapping，@PathVariable，这些注解统称为 Spring MVC 注解。**但是由于 OpenFeign 是不理解这些注解的，所以需要进行一次解析**。
+
+![image-20230511172423427](media/images/image-20230511172423427.png)
+
+而解析的类就是 `SpringMvcContract` 类，调用 `parseAndValidateMetadata` 进行解析。解析完之后，就会生成元数据列表。源码如下所示：
+
+```JAVA
+List<MethodMetadata> metadata = contract.parseAndValidateMetadata(target.type());
+```
+
+类路径：
+
+```java
+https://github.com/spring-cloud/spring-cloud-openfeign/blob/main/spring-cloud-openfeign-core/src/main/java/org/springframework/cloud/openfeign/support/SpringMvcContract.java
+```
+元数据：MethodMetadata 内容。
+![image-20230511172612390](media/images/image-20230511172612390.png)
+
+- 方法的定义，如 StudyTimeFeignService 的 getMemberStudyTimeList 方法。
+- 方法的参数类型，如 Long。
+- 发送 HTTP 请求的地址，如 /study/studytime/member/list/test/{id}。
+
+然后每个接口方法就会有对应的一个 MethodHandler，**它里面就包含了元数据**，当我们调用接口方法时，其实是调用动态代理对象的 MethodHandler 来发送远程调用请求的。
+
+![image-20230516170118727](media/images/image-20230516170118727.png)
+
+#### 6 OpenFeign 发送请求的原理
+
+流程图：
+
+![image-20230517155609997](media/images/image-20230517155609997.png)
+
+还是在 ReflectivFeign 类中，有一个 invoke 方法，会执行一下代码：
+```java
+public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+    if ("equals".equals(method.getName())) {
+        try {
+            Object otherHandler =
+                args.length > 0 && args[0] != null ? Proxy.getInvocationHandler(args[0]) : null;
+            return equals(otherHandler);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    } else if ("hashCode".equals(method.getName())) {
+        return hashCode();
+    } else if ("toString".equals(method.getName())) {
+        return toString();
+    }
+// *************
+    return dispatch.get(method).invoke(args);
+}
+```
+
+这个 dispatch 我们之前已经讲解过了，它指向了一个 HashMap，里面包含了 FeignClient 每个接口的 MethodHandler 类。
+
+这行代码的意思就是根据 method 找到 MethodHandler，调用它的 invoke 方法，且传的参数就是我们接口中的定义的参数。
+
+具体的方法是在这个类中调用的：SynchronousMethodHandler
+
+```java
+public Object invoke(Object[] argv) throws Throwable {
+  RequestTemplate template = buildTemplateFromArgs.create(argv);
+  ...
+}
+```
+
+RequestTemplate 转换成 Request，它的值类似如下：
+
+```http
+GET http://passjava-study/study/list/test/1 HTTP/1.1
+```
+
+这不路径不就是我们要 study 服务的方法，这样就可以直接调用到 study 服了呀！
+
+OpenFeign 帮我们组装好了发起远程调用的一切，我们只管调用就好了。
+
+接着 MethodHandler 会执行以下方法，发起 HTTP 请求。
+
+```java
+response = client.execute(request, options);
+```
+
+**从上面的我们要调用的服务就是 passjava-study，但是这个服务的具体 IP 地址我们是不知道的，那 OpenFeign 是如何获取到 passjava-study 服务的 IP 地址的呢**？
+
+回想下最开始我们提出的核心问题：**OpenFeign 是如何进行负载均衡的**？
+
+我们是否可以联想到上一讲的 **Ribbon 负载均衡**，它不就是用来做 IP 地址选择的么？
+
+那我们就来看下 OpenFeign 又是如何和 Ribbon 进行整合的。
+
+#### 7 OpenFeign 如何与 Ribbon 整合的原理
+
+为了验证 Ribbon 的负载均衡，我们需要启动两个 passjava-study 服务，这里我启动了两个服务，端口号分别为 12100 和 12200，IP 地址都是本机 IP：192.168.10.197
+
+![image-20230517160448383](./media/images/image-20230517160448383.png)
+
+接着上面的源码继续看，client.execute() 方法其实会调用 LoadBalancerFeignClient 的 exceute 方法。
+
+这个方法里面的执行流程如下图所示：
+
+![image-20230517160523063](media/images/image-20230517160523063.png)
+
+- 将服务名称 `passjava-study` 从 Request 的 URL 中删掉，剩下的如下所示：
+
+```HTTP
+GET http:///study/list/test/1 HTTP/1.1
+```
+
+- 根据服务名从缓存中找 FeignLoadBalancer，如果缓存中没有，则创建一个 FeignLoadBalancer。
+- FeignLoadBalancer 会创建出一个 command，这个 command 会执行一个 sumbit 方法。
+- submit 方法里面就会用 Ribbon 的负载均衡算法选择一个 server。源码如下：
+
+```java
+Server svc = lb.chooseServer(loadBalancerKey);
+```
+
+通过 debug 调试，我们可以看到两次请求的端口号不一样，一个是 12200，一个是 12100，说明确实进行了负载均衡。
+
+![image-20230517160651056](media/images/image-20230517160651056.png)
+
+- 然后将 IP 地址和之前剔除服务名称的 URL 进行拼接，生成最后的服务地址。
+- 最后 FeignLoadBalancer 执行 execute 方法发送请求。
+
+**那大家有没有疑问，Ribbon 是如何拿到服务地址列表的？**这个就是上一讲 Ribbon 架构里面的内容。（需要学习）。
+
+Ribbon 的核心组件 ServerListUpdater，用来同步注册表的，它有一个实现类 PollingServerListUpdater ，专门用来做定时同步的。默认1s 后执行一个 Runnable 线程，后面就是每隔 30s 执行 Runnable 线程。这个 Runnable 线程就是去获取注册中心的注册表的。
+
+#### 8 OpenFeign 处理响应的原理
+
+当远程服务 passjava-study 处理完业务逻辑后，就会返回 reponse 给 passjava-member 服务了，这里还会对 reponse 进行一次解码操作。类：ResponseEntityDecoder ，将 Json 字符串转化为 Bean 对象。
+
+```java
+Object result = decode(response);
+```
