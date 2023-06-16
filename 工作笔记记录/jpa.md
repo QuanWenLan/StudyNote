@@ -119,17 +119,21 @@ public interface ReportArRepository extends JpaRepository<ReportArRec, ReportArI
 * @param <T> 具体的实体类repository
 */
 public <T> Page<T> queryPage(JpaSpecificationExecutor<T> repository, StockForm stockForm) {
-    Pages pages = stockForm.getPage();
-    Pageable pageable = PageRequest.of(pages.getCurrentPage() -  1, pages.getPageSize());
+    log.info("search condition: {}", stockForm);
+    Pageable pageable = PageUtils.createPageRequest(stockForm.getPage());
     return repository.findAll((Specification<T>) (root, query, cb) -> {
         List<Predicate> predicates = new ArrayList<>();
 
         if (!StringUtils.isEmpty(stockForm.getStockId())) {
-            predicates.add(cb.like(root.get("id").get("stockCode").as(String.class), "%" + stockForm.getStockId() + "%"));
+            predicates.add(cb.equal(root.get("id").get("stockCode").as(String.class), stockForm.getStockId()));
         }
 
         if (stockForm.getStockIds() != null && !stockForm.getStockIds().isEmpty()) {
-            predicates.add(cb.in(root.get("id").get("stockCode").as(String.class).in(stockForm.getStockIds())));
+            CriteriaBuilder.In<String> inCondition = cb.in(root.get("id").get("stockCode").as(String.class));
+            for (String stockId : stockForm.getStockIds()) {
+                inCondition.value(stockId);
+            }
+            predicates.add(inCondition);
         }
 
         if (stockForm.getYear() != null) {
@@ -137,19 +141,27 @@ public <T> Page<T> queryPage(JpaSpecificationExecutor<T> repository, StockForm s
         }
 
         if (stockForm.getYears() != null && !stockForm.getYears().isEmpty()) {
- predicates.add(cb.in(root.get("id").get("reportYear").as(Integer.class).in(stockForm.getYears())));
+            CriteriaBuilder.In<Integer> inCondition = cb.in(root.get("id").get("reportYear").as(Integer.class));
+            for (Integer year : stockForm.getYears()) {
+                inCondition.value(year);
+            }
+            predicates.add(inCondition);
         }
 
         if (!StringUtils.isEmpty(stockForm.getQuarter())) {
-            predicates.add(cb.like(root.get("id").get("reportQuarter").as(String.class), "%" + stockForm.getQuarter() + "%"));
+            predicates.add(cb.equal(root.get("id").get("reportQuarter").as(String.class), stockForm.getQuarter()));
         }
 
         if (stockForm.getQuarters() != null && !stockForm.getQuarters().isEmpty()) {
-  predicates.add(cb.in(root.get("id").get("stockCode").as(String.class).in(stockForm.getStockIds())));
+            CriteriaBuilder.In<String> inCondition = cb.in(root.get("id").get("reportQuarter").as(String.class));
+            for (String quarter : stockForm.getQuarters()) {
+                inCondition.value(quarter);
+            }
+            predicates.add(inCondition);
         }
+
         Predicate[] p = new Predicate[predicates.size()];
         query.where(predicates.toArray(p));
-        query.orderBy(cb.asc(root.get("id").get("stockCode")));
         return query.where(predicates.toArray(p)).getRestriction();
     }, pageable);
 }
@@ -639,3 +651,174 @@ Page<SysUserEntity> findAllUser(List<String> userIds, Pageable pageable);
     List<ServiceServeEntity> queryByCompany(String userId,int startPoint,int endPoint);
 ```
 
+
+
+[Spring Data JPA多表查询的几种方法](https://blog.csdn.net/q990609179/article/details/103313933) 
+
+
+
+### jpa使用原生sql查询
+
+```java
+public List<StockVo> getAllStockListByPage(StockForm stockForm) {
+    List<StockVo> stockVoList = new ArrayList<>();
+    StringBuilder searchSql = new StringBuilder("SELECT * FROM (");
+    // ar
+    searchSql.append("SELECT  " +
+            " ra.stock_code AS stockCode, ra.report_year AS reportYear, ra.report_quarter AS `quarter`, ra.ric AS ric, ra.holder_id AS holderId, " + // 5
+            " ra.name_of_sub_shareholder_eng AS nameEn, ra.name_of_sub_shareholder_chi AS nameCh,ra.share_holder_type AS holderType, " + // 3
+            " ra.share_class AS shareClass, ra.nature_of_interest AS natureOfInterest,ra.number_of_shares_interested AS numSharesOfInterested, " + // 3
+            " ra.dup_shares AS dupShares, ra.dup_with AS dupWith, ra.shareholding_relevant_class AS percentage1, " + // 3
+            " ra.shareholding_issued_and_outstanding AS percentage2, ra.relationship_group AS relGrp, ra.note AS note, ra.data_cut_off AS dateCutOff, " + // 4
+            " ra.finalized_holding_after_lock_up AS finalHolding, ra.`year` AS `year`, ra.report_type AS reportType, ra.report_date AS reportDate," +
+            " ra.url AS url, ra.record_date AS recordDate, NULL AS lockupDate, 0.00 AS ofIssVotShs," +
+            " NULL AS dtOfLstNtcFld, '' AS fmSerNo," +
+            " '' AS `position`, '' AS furtherInfo, '' AS derCode, 0 AS numOfDerivatives, 'AR' AS source" +
+            " FROM report_ar ra");
+    searchSql.append(" WHERE ra.report_year =:yearCon AND ra.report_quarter =:quarterCon");
+    if (!stockForm.getStockIds().isEmpty()) {
+        searchSql.append(" AND ra.stock_code in(:codeCon)");
+    }
+    searchSql.append(" UNION ");
+    // ipo
+    searchSql.append(" SELECT  " +
+            " ri.stock_code AS stockCode, ri.report_year AS reportYear, ri.report_quarter AS `quarter`, ri.ric AS ric, ri.holder_id AS holderId,  " +
+            " ri.name_of_sub_shareholder_eng AS nameEn, ri.name_of_sub_shareholder_chi AS nameCh, ri.share_holder_type AS holderType, " +
+            " ri.share_class AS shareClass, '' AS natureOfInterest,ri.number_of_shares_interested AS numSharesOfInterested, " +
+            " ri.dup_shares AS dupShares, ri.dup_with AS dupWith, 0.00 AS percentage1, " +
+            " 0.00 AS percentage2, ri.relationship_group AS relGrp, '' AS note, NULL AS dateCutOff, " +
+            " 0 AS finalHolding, '' AS `year`, 'IPO' AS reportType, NULL AS reportDate, " +
+            " '' AS url, ri.record_date AS recordDate, ri.lock_up_date AS lockupDate, ri.of_issued_voting_shares AS ofIssVotShs, " +
+            " ri.date_of_last_notice_filed AS dtOfLstNtcFld, '' AS fmSerNo, " +
+            " '' AS `position`, '' AS furtherInfo, '' AS derCode, 0 AS numOfDerivatives, 'IPO' AS source " +
+            " FROM report_ipo ri");
+    searchSql.append(" WHERE ri.report_year =:yearCon AND ri.report_quarter =:quarterCon");
+    if (!stockForm.getStockIds().isEmpty()) {
+        searchSql.append(" AND ri.stock_code in(:codeCon)");
+    }
+    searchSql.append(" UNION ");
+    // cs
+    searchSql.append(" SELECT  " +
+            " rc.stock_code AS stockCode, rc.report_year AS reportYear, rc.report_quarter AS `quarter`, rc.ric AS ric, rc.holder_id AS holderId,  " +
+            " rc.name_of_sub_shareholder_eng AS nameEn, rc.name_of_sub_shareholder_chi AS nameCh, rc.share_holder_type AS holderType, " +
+            " rc.share_class AS shareClass, '' AS natureOfInterest,rc.number_of_shares_interested AS numSharesOfInterested, " +
+            " rc.dup_shares AS dupShares, rc.dup_with AS dupWith, 0.00 AS percentage1, " +
+            " 0.00 AS percentage2, rc.relationship_group AS relGrp, '' AS note, NULL AS dateCutOff, " +
+            " 0 AS finalHolding, '' AS `year`, 'IPO' AS reportType, NULL AS reportDate, " +
+            " '' AS url, rc.record_date AS recordDate, rc.lock_up_date AS lockupDate, rc.of_issued_voting_shares AS ofIssVotShs, " +
+            " rc.date_of_last_notice_filed AS dtOfLstNtcFld, '' AS fmSerNo, " +
+            " '' AS `position`, '' AS furtherInfo, '' AS derCode, 0 AS numOfDerivatives, 'CS' AS source " +
+            " FROM report_cornerstone rc");
+    searchSql.append(" WHERE rc.report_year =:yearCon AND rc.report_quarter =:quarterCon");
+    if (!stockForm.getStockIds().isEmpty()) {
+        searchSql.append(" AND rc.stock_code in(:codeCon)");
+    }
+    searchSql.append(" UNION ");
+    // sdi
+    searchSql.append(" SELECT " +
+            " rs.stock_code AS stockCode, rs.report_year AS reportYear, rs.report_quarter AS `quarter`, rs.ric AS ric, rs.holder_id AS holderId,  " +
+            " rs.name_of_sub_shareholder_eng AS nameEn, rs.name_of_sub_shareholder_chi AS nameCh, rs.share_holder_type AS holderType, " +
+            " rs.share_class AS shareClass, '' AS natureOfInterest,rs.number_of_shares_interested AS numSharesOfInterested, " +
+            " rs.dup_shares AS dupShares, rs.dup_with AS dupWith, 0.00 AS percentage1, " +
+            " 0.00 AS percentage2, rs.relationship_group AS relGrp, '' AS note, NULL AS dateCutOff, " +
+            " 0 AS finalHolding, '' AS `year`, 'IPO' AS reportType, NULL AS reportDate, " +
+            " '' AS url, rs.record_date AS recordDate, NULL AS lockupDate, 0 AS ofIssVotShs, " +
+            " NULL AS dtOfLstNtcFld, rs.form_serial_number AS fmSerNo, " +
+            " rs.`position` AS `position`, rs.further_information AS furtherInfo, rs.derivatives_code AS derCode, rs.number_of_shares_derivatives AS numOfDerivatives,'SDI' AS source " +
+            " FROM report_sdi rs");
+    searchSql.append(" WHERE rs.report_year =:yearCon AND rs.report_quarter =:quarterCon");
+    if (!stockForm.getStockIds().isEmpty()) {
+        searchSql.append(" AND rs.stock_code in(:codeCon)");
+    }
+    searchSql.append(") t");
+
+    Pages page = stockForm.getPage();
+    int currentPage = page.getCurrentPage();
+    int pageSize = page.getPageSize();
+    int offset = (currentPage - 1) * page.getPageSize();
+
+    // count
+    StringBuilder countSql = new StringBuilder(searchSql.toString().replace("\\*", "count(1)"));
+    NativeQueryImpl countQuery = entityManager.createNativeQuery(countSql.toString()).unwrap(NativeQueryImpl.class);
+
+    countQuery.setParameter("yearCon", stockForm.getYear());
+    countQuery.setParameter("quarterCon", stockForm.getQuarter());
+    if (!stockForm.getStockIds().isEmpty()) {
+        String codes = stockForm.getStockIds().stream().map(r -> "'" + r + "'").collect(Collectors.joining(","));
+        countQuery.setParameter("codeCon", codes);
+    }
+
+    // count all data
+    List countObjects = countQuery.getResultList();
+    long total = countQuery.stream().count();
+    log.info("total 结果：{}", total);
+    long totalPage = (total + ((long) pageSize) / pageSize);
+    log.info("total page: {}", totalPage);
+
+    searchSql.append(" ORDER BY t.stockCode limit :offset, :pageSize");
+    NativeQueryImpl sqlQuery = entityManager.createNativeQuery(searchSql.toString()).unwrap(NativeQueryImpl.class);
+    AliasToBeanResultTransformer<StockDto> dtoTransformer = new AliasToBeanResultTransformer<>(StockDto.class);
+    sqlQuery.setResultListTransformer(dtoTransformer);
+
+    sqlQuery.setParameter("yearCon", stockForm.getYear());
+    sqlQuery.setParameter("quarterCon", stockForm.getQuarter());
+    if (!stockForm.getStockIds().isEmpty()) {
+        String codes = stockForm.getStockIds().stream().map(r -> "'" + r + "'").collect(Collectors.joining(","));
+        sqlQuery.setParameter("codeCon", codes);
+    }
+    sqlQuery.setParameter("offset", offset);
+    sqlQuery.setParameter("pageSize", page.getPageSize());
+
+    List<StockDto> resultList = sqlQuery.getResultList();
+    log.info("查询到数据的总数为：{}", resultList.size());
+
+    return stockVoList;
+}
+```
+
+查询出来的数据列，对应到具体的类：
+
+```java
+public class StockDto {
+    // ar
+    private String stockCode;
+    private Integer reportYear;
+    private String quarter;
+    private String ric;
+    private String holderId;
+    private String nameEn;
+    private String nameCh;
+    private String holderType;
+    private String shareClass;
+    private String natureOfInterest;
+    private Long numSharesOfInterested;
+    private Long dupShares;
+    private String dupWith;
+    private BigDecimal percentage1;
+    private BigDecimal percentage2;
+    private String relGrp;
+    private String note;
+    private Date dataCutOff;
+    private BigDecimal finalHolding;
+    private String year;
+    private String reportType;
+    private String url;
+    private Date reportDate;
+    private Date recordDate;
+    /**
+     * cs and ipo
+     */
+    private Date lockupDate;
+    private BigDecimal ofIssVotShs;
+    private Date dtOfLstNtcFld;
+    /**
+     * sdi
+     */
+    private String fmSerNo;
+    private String position;
+    private String furtherInfo;
+    private String derCode;
+    private Long numOfDerivatives;
+    private String source;
+}
+```
