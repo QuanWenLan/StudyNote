@@ -278,6 +278,24 @@ POST 请求：http://192.168.56.10:9200/member/external/2/_update
 
 使用场景：对于大并发更新，建议不带 `_update`。对于大并发查询，少量更新的场景，可以带_update，进行对比更新。
 
+如果更新的文档不存在时，可以使用upsert。
+
+```sh
+POST 请求：http://192.168.56.10:9200/member/external/2/_update
+{
+    "doc":{
+        "name":"jay huang",
+         "age": 18  // 可以增加一个属性
+	 },
+	 "upsert": {
+	 	"name":"lanlan",
+	 	"age":20
+	 }
+}
+```
+
+
+
 #### 删除文档和索引
 
 ```json
@@ -919,3 +937,208 @@ POST _reindex
  }
 }
 ```
+
+#### 创建索引，添加定制的分析器
+
+```sh
+PUT /my-analyzer-index 
+{
+  "settings": {
+    "number_of_shards": 2,
+    "number_of_replicas": 1,
+    "index" : {
+      "analysis": {
+        "analyzer":  {
+          "myCustomAnalyzer": {
+            "type": "custom",
+            "tokenizer": "myCustomTokenizer",
+            "filter" :["myCustomFilter1", "myCustomFilter2"],
+            "char_filter": ["myCustomCharFilter"]
+          }
+        },
+        "tokenizer": {
+          "myCustomTokenizer": {
+            "type": "letter"
+          }
+        },
+        "filter": {
+          "myCustomFilter1": {
+            "type": "lowercase"
+          },
+          "myCustomFilter2": {
+            "type": "kstem"
+          }
+        },
+        "char_filter": {
+          "myCustomCharFilter": {
+            "type": "mapping",
+            "mappings": ["ph=>f", "u=>you"]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+返回的结果：
+
+```sh
+{
+  "acknowledged" : true,
+  "shards_acknowledged" : true,
+  "index" : "my-analyzer-index"
+}
+```
+
+查看 setting
+
+```sh
+GET my-analyzer-index/_settings
+
+{
+  "my-analyzer-index" : {
+    "settings" : {
+      "index" : {
+        "number_of_shards" : "2",
+        "provided_name" : "my-analyzer-index",
+        "creation_date" : "1679818880880",
+        "analysis" : {
+          "filter" : {
+            "myCustomFilter1" : {
+              "type" : "lowercase"
+            },
+            "myCustomFilter2" : {
+              "type" : "kstem"
+            }
+          },
+          "char_filter" : {
+            "myCustomCharFilter" : {
+              "type" : "mapping",
+              "mappings" : [
+                "ph=>f",
+                "u=>you"
+              ]
+            }
+          },
+          "analyzer" : {
+            "myCustomAnalyzer" : {
+              "filter" : [
+                "myCustomFilter1",
+                "myCustomFilter2"
+              ],
+              "char_filter" : [
+                "myCustomCharFilter"
+              ],
+              "type" : "custom",
+              "tokenizer" : "myCustomTokenizer"
+            }
+          },
+          "tokenizer" : {
+            "myCustomTokenizer" : {
+              "type" : "letter"
+            }
+          }
+        },
+        "number_of_replicas" : "1",
+        "uuid" : "nnbgakhJRf6I9ADBUsf7OQ",
+        "version" : {
+          "created" : "7060299"
+        }
+      }
+    }
+  }
+}
+```
+
+还可以在配置中添加自定义的分析器，在elasticsearch.yml 中。
+
+然后在映射中为某个字段指定特定的分词器：
+
+```sh
+PUT my_index/_mapping/my_type
+{
+  "properties": {
+    "content":{
+      "type": "text",
+      "analyzer": "my_analyzer"
+    }
+  }
+}
+```
+
+使用自定义的分析器分析语句：
+
+```sh
+POST my-analyzer-index/_analyze
+{
+  "analyzer": "myCustomAnalyzer", 
+  "text":"share your experience with nosql & big data technologies"
+}
+```
+
+结果：
+
+```sh
+{
+  "tokens" : [
+    {
+      "token" : "share",
+      "start_offset" : 0,
+      "end_offset" : 5,
+      "type" : "word",
+      "position" : 0
+    },
+    {
+      "token" : "yoyour",
+      "start_offset" : 6,
+      "end_offset" : 10,
+      "type" : "word",
+      "position" : 1
+    },
+    {
+      "token" : "experience",
+      "start_offset" : 11,
+      "end_offset" : 21,
+      "type" : "word",
+      "position" : 2
+    },
+    {
+      "token" : "with",
+      "start_offset" : 22,
+      "end_offset" : 26,
+      "type" : "word",
+      "position" : 3
+    },
+    {
+      "token" : "nosql",
+      "start_offset" : 27,
+      "end_offset" : 32,
+      "type" : "word",
+      "position" : 4
+    },
+    {
+      "token" : "big",
+      "start_offset" : 35,
+      "end_offset" : 38,
+      "type" : "word",
+      "position" : 5
+    },
+    {
+      "token" : "data",
+      "start_offset" : 39,
+      "end_offset" : 43,
+      "type" : "word",
+      "position" : 6
+    },
+    {
+      "token" : "technology",
+      "start_offset" : 44,
+      "end_offset" : 56,
+      "type" : "word",
+      "position" : 7
+    }
+  ]
+}
+```
+

@@ -228,6 +228,10 @@ protected void initStrategies(ApplicationContext context) {
 }
 ```
 
+初始化处理器映射器后：
+
+![image-20230613232348351](media/images/image-20230613232348351.png)
+
 初始化处理器适配器之后有三个对应的 handlerAdapter，其中一个支持的话就直接返回。
 
 ![image-20220414122334465](media/images/image-20220414122334465.png)
