@@ -629,6 +629,31 @@ public class CornerStoneVo extends StockVo {
 }
 ```
 
+@JsonFilter("apiStockFilter") 可以和 @JsonIgnore、@JsonIgnoreProperties 一起使用
+
+```java
+@Data
+@JsonFilter("apiStockFilter")
+@JsonIgnoreProperties({"stkCd", "rptYr", "qtr", "uploadDate"})
+public class LockupUrlVo extends StockVo {
+    private String source;
+
+    // ric -> arvo.ric
+    private String ric;
+
+    private List<String> url;
+
+    // These attributes do not require
+    private String stkCd;
+
+    private String rptYr;
+
+    private String qtr;
+
+    private String uploadDate;
+}
+```
+
 StockVo 是一个父类，返回的字段在它的子类中，返回的json字段会少上面三个字段。
 
 ```java
@@ -653,6 +678,9 @@ public class ApiStockResponse extends BaseHsicmsResp<NullOutput> {
         String json;
         try {
             json = objectMapper.writeValueAsString(res);
+            // 返回的 bigdecimal 科学计数法问题
+            objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+          objectMapper.configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS,true);
         } catch (JsonProcessingException e) {
             log.error("json serialize fail: {}", e.getMessage());
             json = "{" +
@@ -853,3 +881,54 @@ public class IdBean {
 - 自定义参数解析，类似 @RequestParam
 
 https://blog.csdn.net/qq_35787138/article/details/105376731
+
+#### spring boot 用实体接收 Get 请求传递的多个参数
+
+1 controller 层不带任何注解接收参数
+
+```java
+/**
+ * @author zhangzhixiang
+ * @since v1.0.0
+ */
+@RestController
+@RequestMapping(path = "/ui/institution")
+public class InstitutionManagementController {
+ 
+    @GetMapping(value = "/pageQueryForAssign")
+    public void pageQueryInstitutionsForAssign(InstitutionQueryDTO queryDTO) {
+ 
+    }
+}
+```
+
+前端传参数：`http://192.168.63.125/ui/institution/pageQueryForAssign?name='xxx'&sex='男'`，这个name和sex是实体类种的属性。
+
+2 controller 通过 @ModelAttribute 接收参数
+
+```java
+/**
+ * @author zhangzhixiang
+ * @since v1.0.0
+ */
+@RestController
+@RequestMapping(path = "/ui/institution")
+public class InstitutionManagementController {
+ 
+    @GetMapping(value = "/test")
+    public void test(@ModelAttribute InstitutionQueryDTO queryDTO){
+ 
+    }
+}
+```
+
+这里的重点是@ModelAttribute注解，他也会将前端传过来的参数填充到业务实体中，前端传参格式与方法一相同。
+
+#### java 使用spring Boot 3.0和spring data jpa时，由方法名创建的查询会报告错误
+
+项目启动时，报告了一个错误，但一切正常
+Spring Boot 2.7下正常无报错
+Spring Boot 3.0.1+ spring data jpa 3.0.1由Spring初始化程序创建。
+
+https://www.saoniuhuo.com/question/detail-2419397.html
+
