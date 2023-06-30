@@ -163,7 +163,7 @@ static final class COWIterator<E> implements ListIterator<E> {
 
 在如上代码中，当调用iterator（）方法获取迭代器时实际上会返回一个COWIterator对象，COWIterator对象的**snapshot变量保存了当前list的内容，cursor是遍历list时数据的下标**。
 
-为什么说snapshot是list的快照呢？明明是指针传递的引用啊，而不是副本。如果在该线程使用返回的迭代器遍历元素的过程中，其他线程没有对list进行增删改，那么snapshot本身就是list的array，因为它们是引用关系。但是如果在遍历期间其他线程对该list进行了增删改，那么snapshot就是快照了，因为增删改后list里面的数组被新数组替换了，这时候老数组被snapshot引用。这也说明获取迭代器后，使用该迭代器元素时，其他线程对该list进行的增删改不可见，因为它们操作的是两个不同的数组，这就是弱一致性。 
+为什么说snapshot是list的快照呢？明明是指针传递的引用啊，而不是副本。**如果在该线程使用返回的迭代器遍历元素的过程中，其他线程没有对list进行增删改，那么snapshot本身就是list的array，因为它们是引用关系**。但是**如果在遍历期间其他线程对该list进行了增删改，那么snapshot就是快照了，因为增删改后list里面的数组被新数组替换了，这时候老数组被snapshot引用**。这也说明获取迭代器后，使用该迭代器元素时，其他线程对该list进行的增删改不可见，因为它们操作的是两个不同的数组，这就是弱一致性。 
 
 ```java
 CopyOnWriteArrayList<Object> arrayList = new CopyOnWriteArrayList<>();
@@ -186,4 +186,33 @@ while (iterator.hasNext()) {
 }
 ```
 
-在如上代码中，main函数首先初始化了arrayList，然后在启动线程前获取到了arrayList迭代器。子线程threadOne启动后首先修改了arrayList的第一个元素的值，然后删除了arrayList中下标为2和3的元素。主线程在子线程执行完毕后使用获取的迭代器遍历数组元素，从输出结果我们知道，在子线程里面进行的操作一个都没有生效，这就是迭代器弱一致性的体现。需要注意的是，获取迭代器的操作必须在子线程操作之前进行。  
+输出结果：
+
+```java
+hello
+AAAA
+BBBB
+CCCC
+DDDD
+```
+
+在如上代码中，main函数首先初始化了arrayList，然后在启动线程前获取到了arrayList迭代器。子线程threadOne启动后首先修改了arrayList的第一个元素的值，然后删除了arrayList中下标为2和3的元素。主线程在子线程执行完毕后使用获取的迭代器遍历数组元素，从输出结果我们知道，在子线程里面进行的操作一个都没有生效，这就是迭代器弱一致性的体现。**需要注意的是，获取迭代器的操作必须在子线程操作之前进行**。  
+
+#### 3、缺点和使用场景
+
+CopyOnWriteArrayList 有几个缺点：
+
+- 由于写操作的时候，需要拷贝数组，会消耗内存，如果原数组的内容比较多的情况下，可能导致young gc或者full gc
+- 不能用于实时读的场景，像拷贝数组、新增元素都需要时间，所以调用一个set操作后，读取到数据可能还是旧的,虽然CopyOnWriteArrayList 能做到最终一致性,但是还是没法满足实时性要求；
+
+**CopyOnWriteArrayList 合适读多写少的场景，不过这类慎用**。
+
+因为谁也没法保证CopyOnWriteArrayList 到底要放置多少数据，万一数据稍微有点多，每次add/set都要重新复制数组，这个代价实在太高昂了。在高性能的互联网应用中，这种操作分分钟引起故障。
+
+##### CopyOnWriteArrayList为什么并发安全且性能比Vector好?
+
+Vector对单独的add，remove等方法都是在方法上加了synchronized; 并且如果一个线程A调用size时，另一个线程B 执行了remove，然后size的值就不是最新的，然后线程A调用remove就会越界(这时就需要再加一个Synchronized)。这样就导致有了双重锁，效率大大降低，何必呢。于是vector废弃了，要用就用CopyOnWriteArrayList 吧。
+
+------
+
+著作权归@pdai所有 原文链接：https://pdai.tech/md/java/thread/java-thread-x-juc-collection-CopyOnWriteArrayList.html

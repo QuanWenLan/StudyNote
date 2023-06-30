@@ -2,6 +2,8 @@
 
 具体的一些内容可以参考，如何计算高16位和低16位： https://blog.csdn.net/qq_26542493/article/details/104930610
 
+参考博客：[JUC锁: ReentrantReadWriteLock详解 | Java 全栈知识体系 (pdai.tech)](https://www.pdai.tech/md/java/thread/java-thread-x-lock-ReentrantReadWriteLock.html)
+
 解决线程安全问题使用ReentrantLock就可以，但是ReentrantLock是独占锁，某时只有一个线程可以获取该锁，而**实际中会有写少读多的场景**，显然ReentrantLock满足不了这个需求，所以ReentrantReadWriteLock应运而生。**ReentrantReadWriteLock采用读写分离的策略，允许多个线程可以同时获取读锁**。
 
 <img src="media/images/image-20211103115149827.png" alt="image-20211103115149827" style="zoom:67%;" />
@@ -157,7 +159,11 @@ protected final boolean tryAcquire(int acquires) {
 }
 ```
 
-在代码（1）中，如果当前AQS状态值不为0则说明当前已经有线程获取到了读锁或者写锁。在代码（2）中，如果w==0 说明状态值的低16位为0，而AQS状态值不为0，则说明高16位不为0，这暗示已经有线程获取了读锁，所以直接返回false。
+> 说明：首先会获取state，判断是否为0，若为0，表示此时没有读锁线程，再判断写线程是否应该被阻塞，而在非公平策略下总是不会被阻塞，在公平策略下会进行判断(判断同步队列中是否有等待时间更长的线程，若存在，则需要被阻塞，否则，无需阻塞)，之后在设置状态state，然后返回true。
+>
+> state，判断是否为0，若为0，表示此时没有读锁线程，再判断写线程是否应该被阻塞，而在非公平策略下总是不会被阻塞，在公平策略下会进行判断(判断同步队列中是否有等待时间更长的线程，若存在，则需要被阻塞，否则，无需阻塞)，之后在设置状态state，然后返回true。
+
+在代码（1）中，如果当前AQS状态值**不为0则说明当前已经有线程获取到了读锁或者写锁**。在代码（2）中，如果w==0 说明状态值的低16位为0，而AQS状态值不为0，则说明高16位不为0，这暗示已经有线程获取了读锁，所以直接返回false。
 
 而如果 w!=0 则说明当前已经有线程获取了该写锁，再看当前线程是不是该锁的持有者，如果不是则返回false。
 
@@ -258,7 +264,7 @@ protected final int tryAcquireShared(int unused) {
     // （2）判断是否写锁被占用，这是因为，如果线程先获得了写锁，是可以重入再次获取读锁的，此为锁降级。
     // 否则不可重入
     if (exclusiveCount(c) != 0 &&
-        getExclusiveOwnerThread() != current)
+        getExclusiveOwnerThread() != current) // 写线程数不为0并且占有资源的线程不是当前线程
         return -1;
     // （3）获取读锁计数
     int r = sharedCount(c);
@@ -268,7 +274,7 @@ protected final int tryAcquireShared(int unused) {
         compareAndSetState(c, c + SHARED_UNIT)) {
         // （5）第一个线程获取读锁
         if (r == 0) {
-            // 把但钱线程设置成第一个获取到读锁的线程
+            // 把当前线程设置成第一个获取到读锁的线程
             firstReader = current;
             firstReaderHoldCount = 1;
             // （6）如果当前线程是第一个获取读锁的线程，则重入，计数 + 1
@@ -352,25 +358,25 @@ public final boolean releaseShared(int arg) {
 // java.util.concurrent.locks.ReentrantReadWriteLock.Sync#tryReleaseShared
 protected final boolean tryReleaseShared(int unused) {
     Thread current = Thread.currentThread();
-    if (firstReader == current) {
+    if (firstReader == current) { // 当前线程为第一个读线程
         // assert firstReaderHoldCount > 0;
-        if (firstReaderHoldCount == 1)
+        if (firstReaderHoldCount == 1) // 该线程占用的资源数为1
             firstReader = null;
         else
-            firstReaderHoldCount--;
-    } else {
-        HoldCounter rh = cachedHoldCounter;
-        if (rh == null || rh.tid != getThreadId(current))
-            rh = readHolds.get();
-        int count = rh.count;
-        if (count <= 1) {
+            firstReaderHoldCount--; // 减少占用的资源数
+    } else { // 当前线程不为第一个读线程
+        HoldCounter rh = cachedHoldCounter; // 获取缓存计数器
+        if (rh == null || rh.tid != getThreadId(current)) // 计数器为空或计数器的tid不为当前正在运行的线程
+            rh = readHolds.get();  // 获取当前线程对应的计数器
+        int count = rh.count; // 获取计数
+        if (count <= 1) { // 计数小于1
             readHolds.remove();
             if (count <= 0)
                 throw unmatchedUnlockException();
         }
-        --rh.count;
+        --rh.count; // 减少计数
     }
-    // 循环知道自己的都技术 -1  ，CAS 更新成功
+    // 循环直到自己的计数 -1  ，CAS 更新成功
     for (;;) {
         int c = getState();
         int nextc = c - SHARED_UNIT;

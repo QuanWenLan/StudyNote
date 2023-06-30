@@ -405,4 +405,391 @@ public class NonReentrantLockTest {
 
 ```
 
-##### 
+### AQS 源码解析
+
+#### AQS 数据结构
+
+原文链接：https://pdai.tech/md/java/thread/java-thread-x-lock-AbstractQueuedSynchronizer.html
+
+AbstractQueuedSynchronizer类底层的数据结构是使用`CLH(Craig,Landin,and Hagersten)队列`是一个虚拟的双向队列(虚拟的双向队列即不存在队列实例，仅存在结点之间的关联关系)。AQS是将每条请求共享资源的线程封装成一个CLH锁队列的一个结点(Node)来实现锁的分配。其中Sync queue，即同步队列，是双向链表，包括head结点和tail结点，head结点主要用作后续的调度。而Condition queue不是必须的，其是一个单向链表，只有当使用Condition时，才会存在此单向链表。并且可能会有多个Condition queue。
+
+![image-20230626151751633](media/images/image-20230626151751633.png)
+
+##### AbstractQueuedSynchronizer示例详解一
+
+示例源码：
+
+```java
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+class MyThread extends Thread {
+    private Lock lock;
+    public MyThread(String name, Lock lock) {
+        super(name);
+        this.lock = lock;
+    }
+    
+    public void run () {
+        lock.lock();
+        try {
+            System.out.println(Thread.currentThread() + " running");
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+public class AbstractQueuedSynchronizerDemo {
+    public static void main(String[] args) {
+        Lock lock = new ReentrantLock();
+        
+        MyThread t1 = new MyThread("t1", lock);
+        MyThread t2 = new MyThread("t2", lock);
+        t1.start();
+        t2.start();    
+    }
+}
+```
+
+运行结果(可能的一种):
+
+```java
+Thread[t1,5,main] running
+Thread[t2,5,main] running
+```
+
+结果分析: 从示例可知，线程t1与t2共用了一把锁，即同一个lock。可能会存在如下一种时序。
+
+![image-20230627105552633](media/images/image-20230627105552633.png)
+
+说明: 首先线程t1先执行lock.lock操作，然后t2执行lock.lock操作，然后t1执行lock.unlock操作，最后t2执行lock.unlock操作。基于这样的时序，分析AbstractQueuedSynchronizer内部的工作机制。
+
+- t1线程调用lock.lock方法，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image-20230627105629545](media/images/image-20230627105629545.png)
+
+- t2线程调用lock.lock方法，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image-20230627105653247](media/images/image-20230627105653247.png)
+
+说明: 经过一系列的方法调用，最后达到的状态是禁用t2线程，因为调用了LockSupport.park。这里需要结合源码进行分析。
+
+- t1线程调用lock.unlock，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image-20230627105740374](media/images/image-20230627105740374.png)
+
+- 说明: t1线程中调用lock.unlock后，经过一系列的调用，最终的状态是释放了许可，因为调用了LockSupport.unpark。这时，t2线程就可以继续运行了。此时，会继续恢复t2线程运行环境，继续执行LockSupport.park后面的语句，即进一步调用如下。
+
+![image-20230627105802699](media/images/image-20230627105802699.png)
+
+说明: 在上一步调用了LockSupport.unpark后，t2线程恢复运行，则运行parkAndCheckInterrupt，之后，继续运行acquireQueued方法，最后达到的状态是头节点head与尾结点tail均指向了t2线程所在的结点，并且之前的头节点已经从sync队列中断开了。
+
+- t2线程调用lock.unlock，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image-20230627105849688](media/images/image-20230627105849688.png)
+
+说明: t2线程执行lock.unlock后，最终达到的状态还是与之前的状态一样。
+
+##### [AbstractQueuedSynchronizer示例详解二](https://www.pdai.tech/md/java/thread/java-thread-x-lock-AbstractQueuedSynchronizer.html#abstractqueuedsynchronizer)
+
+源代码：
+
+```java
+package com.lanwq;
+
+
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+/**
+ * @author Lan
+ * @createTime 2023-06-26  17:06
+ **/
+public class Depot {
+    private int size;
+    private int capacity;
+    private Lock lock;
+    private Condition fullCondition;
+    private Condition emptyCondition;
+
+    public Depot(int capacity) {
+        this.capacity = capacity;
+        lock = new ReentrantLock();
+        fullCondition = lock.newCondition();
+        emptyCondition = lock.newCondition();
+    }
+
+    public void produce(int no) {
+        lock.lock();
+        int left = no;
+        try {
+            while (left > 0) {
+                while (size >= capacity) {
+                    System.out.println(Thread.currentThread() + " before await");
+                    fullCondition.await();
+                    System.out.println(Thread.currentThread() + " after await");
+                }
+                int inc = (left + size) > capacity ? (capacity - size) : left;
+                left -= inc;
+                size += inc;
+                System.out.println("produce = " + inc + ", size = " + size);
+                emptyCondition.signal();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public void consume(int no) {
+        lock.lock();
+        int left = no;
+        try {
+            while (left > 0) {
+                while (size <= 0) {
+                    System.out.println(Thread.currentThread() + " before await");
+                    emptyCondition.await();
+                    System.out.println(Thread.currentThread() + " after await");
+                }
+                int dec = (size - left) > 0 ? left : size;
+                left -= dec;
+                size -= dec;
+                System.out.println("consume = " + dec + ", size = " + size);
+                fullCondition.signal();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+//原文链接：https://pdai.tech/md/java/thread/java-thread-x-lock-AbstractQueuedSynchronizer.html
+```
+
+测试类：
+
+```java
+package com.lanwq;
+
+/**
+ * @author Lan
+ * @createTime 2023-06-26  17:06
+ **/
+public class DepotTest {
+    static class Consumer {
+        private Depot depot;
+
+        public Consumer(Depot depot) {
+            this.depot = depot;
+        }
+
+        public void consume(int no) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    depot.consume(no);
+                }
+            }, no + " consume thread").start();
+        }
+    }
+
+    static class Producer {
+        private Depot depot;
+
+        public Producer(Depot depot) {
+            this.depot = depot;
+        }
+
+        public void produce(int no) {
+            new Thread(new Runnable() {
+
+                @Override
+                public void run() {
+                    depot.produce(no);
+                }
+            }, no + " produce thread").start();
+        }
+    }
+//    原文链接：https://pdai.tech/md/java/thread/java-thread-x-lock-AbstractQueuedSynchronizer.html
+
+    public static void main(String[] args) {
+        Depot depot = new Depot(500);
+        new Producer(depot).produce(500);
+        new Producer(depot).produce(200);
+        new Consumer(depot).consume(500);
+        new Consumer(depot).consume(200);
+    }
+}
+```
+
+可能运行的一种结果：
+
+```java
+produce = 500, size = 500
+Thread[200 produce thread,5,main] before await
+consume = 500, size = 0
+Thread[200 consume thread,5,main] before await
+Thread[200 produce thread,5,main] after await
+produce = 200, size = 200
+Thread[200 consume thread,5,main] after await
+consume = 200, size = 0
+```
+
+说明: 根据结果，我们猜测一种可能的时序如下：
+
+![image-20230627110130063](media/images/image-20230627110130063.png)
+
+说明: p1代表produce 500的那个线程，p2代表produce 200的那个线程，c1代表consume 500的那个线程，c2代表consume 200的那个线程。
+
+- p1线程调用lock.lock，获得锁，继续运行，方法调用顺序在前面已经给出。
+- p2线程调用lock.lock，由前面的分析可得到如下的最终状态。
+
+![image](media/images/java-thread-x-juc-aqs-11.png)
+
+说明: p2线程调用lock.lock后，会禁止p2线程的继续运行，因为执行了LockSupport.park操作。
+
+- c1线程调用lock.lock，由前面的分析得到如下的最终状态。
+
+![image](media/images/java-thread-x-juc-aqs-12.png)
+
+说明: 最终c1线程会在sync queue队列的尾部，并且其结点的前驱结点(包含p2的结点)的waitStatus变为了SIGNAL。
+
+- c2线程调用lock.lock，由前面的分析得到如下的最终状态。
+
+![image](media/images/java-thread-x-juc-aqs-13.png)
+
+说明: 最终c2线程会在sync queue队列的尾部，并且其结点的前驱结点(包含c1的结点)的waitStatus变为了SIGNAL。
+
+- p1线程执行emptyCondition.signal，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image](media/images/java-thread-x-juc-aqs-14.png)
+
+说明: AQS.CO表示AbstractQueuedSynchronizer.ConditionObject类。此时调用signal方法不会产生任何其他效果。
+
+- p1线程执行lock.unlock，根据前面的分析可知，最终的状态如下。
+
+![image](media/images/java-thread-x-juc-aqs-15.png)
+
+说明: 此时，p2线程所在的结点为头节点，并且其他两个线程(c1、c2)依旧被禁止，所以，此时p2线程继续运行，执行用户逻辑。
+
+- p2线程执行fullCondition.await，其方法调用顺序如下，只给出了主要的方法调用
+
+![image](media/images/java-thread-x-juc-aqs-17-1.png)
+
+说明: 最终到达的状态是新生成了一个结点，包含了p2线程，此结点在condition queue中；并且sync queue中p2线程被禁止了，因为在执行了LockSupport.park操作。从方法一些调用可知，在await操作中线程会释放锁资源，供其他线程获取。同时，head结点后继结点的包含的线程的许可被释放了，故其可以继续运行。由于此时，只有c1线程可以运行，故运行c1。
+
+> 上面还有一点就是，当线程p2获取到了锁之后，然后fullCondition.await()调用了之后，会执行fullyRelease->release->tryRelease，在tryRelease中会释放掉自己所获得到的所，也就是会将 state - 1，然后设置exclusiveOwnerThread为null，最后更新state值，所以在c1线程可以运行之后，是能够正常获取到锁资源的。
+>
+> ```java
+> public final boolean release(int arg) {
+>     if (tryRelease(arg)) {
+>         Node h = head;
+>         if (h != null && h.waitStatus != 0)
+>             unparkSuccessor(h);
+>         return true;
+>     }
+>     return false;
+> }
+> protected final boolean tryRelease(int releases) {
+>     int c = getState() - releases;
+>     if (Thread.currentThread() != getExclusiveOwnerThread())
+>         throw new IllegalMonitorStateException();
+>     boolean free = false;
+>     if (c == 0) {
+>         free = true;
+>         setExclusiveOwnerThread(null);
+>     }
+>     setState(c);
+>     return free;
+> }
+> ```
+
+还有fullCondition.await()，最后park了自己这个线程。
+
+```java
+public final void await() throws InterruptedException {
+    if (Thread.interrupted())
+        throw new InterruptedException();
+    Node node = addConditionWaiter();
+    int savedState = fullyRelease(node);
+    int interruptMode = 0;
+    // 也就是上面的流程图里面的最后一步。
+    while (!isOnSyncQueue(node)) {
+        LockSupport.park(this);
+        if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
+            break;
+    }
+    // 随后当前这个p2线程又会去尝试获取锁，自旋的获取。
+    if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
+        interruptMode = REINTERRUPT;
+    if (node.nextWaiter != null) // clean up if cancelled
+        unlinkCancelledWaiters();
+    if (interruptMode != 0)
+        reportInterruptAfterWait(interruptMode);
+}
+```
+
+- 继续运行c1线程，c1线程由于之前被park了，所以此时恢复，继续之前的步骤，即还是执行前面提到的acquireQueued方法，之后，c1判断自己的前驱结点为head，并且可以获取锁资源，最终到达的状态如下。
+
+![image](media/images/java-thread-x-juc-aqs-16.png)
+
+说明: 其中，head设置为包含c1线程的结点，c1继续运行。
+
+- c1线程执行fullCondtion.signal，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image](media/images/java-thread-x-juc-aqs-17.png)
+
+说明: signal方法达到的最终结果是将包含p2线程的结点从condition queue中转移到sync queue中，之后condition queue为null，之前的尾结点的状态变为SIGNAL。
+
+- c1线程执行lock.unlock操作，根据之前的分析，经历的状态变化如下。
+
+![image](media/images/java-thread-x-juc-aqs-18.png)
+
+说明: 最终c2线程会获取锁资源，继续运行用户逻辑。
+
+- c2线程执行emptyCondition.await，由前面的第七步分析，可知最终的状态如下。
+
+![image](media/images/java-thread-x-juc-aqs-19.png)
+
+说明: await操作将会生成一个结点放入condition queue中与之前的一个condition queue是不相同的，并且unpark头节点后面的结点，即包含线程p2的结点。
+
+- p2线程被unpark，故可以继续运行，经过CPU调度后，p2继续运行，之后p2线程在AQS:await方法中被park，继续AQS.CO:await方法的运行，其方法调用顺序如下，只给出了主要的方法调用。
+
+![image](media/images/java-thread-x-juc-aqs-20.png)
+
+- p2继续运行，执行emptyCondition.signal，根据第九步分析可知，最终到达的状态如下。
+
+![image](media/images/java-thread-x-juc-aqs-21.png)
+
+说明: 最终，将condition queue中的结点转移到sync queue中，并添加至尾部，condition queue会为空，并且将head的状态设置为SIGNAL。
+
+- p2线程执行lock.unlock操作，根据前面的分析可知，最后的到达的状态如下。
+
+![image](media/images/java-thread-x-juc-aqs-22.png)
+
+说明: unlock操作会释放c2线程的许可，并且将头节点设置为c2线程所在的结点。
+
+- c2线程继续运行，执行fullCondition. signal，由于此时fullCondition的condition queue已经不存在任何结点了，故其不会产生作用。
+- c2执行lock.unlock，由于c2是sync队列中最后一个结点，故其不会再调用unparkSuccessor了，直接返回true。即整个流程就完成了。
+
+#### AbstractQueuedSynchronizer总结
+
+对于AbstractQueuedSynchronizer的分析，最核心的就是sync queue的分析。
+
+- **每一个结点都是由前一个结点唤醒**。
+- **当结点发现前驱结点是head并且尝试获取成功，则会轮到该线程运行**。
+- **condition queue中的结点向sync queue中转移是通过signal操作完成的**。
+- **condition queue中的节点添加是通过 await() 操作完成的，并且会释放当前线程的锁，且会unpark后继节点的线程，park当前自己的线程**。
+- **当结点的状态为SIGNAL时，表示后面的结点需要运行**。
+
+------
+
+著作权归@pdai所有 原文链接：https://pdai.tech/md/java/thread/java-thread-x-lock-AbstractQueuedSynchronizer.html
+
+
+
+[源码分析 - 标签 - leesf - 博客园 (cnblogs.com)](https://www.cnblogs.com/leesf456/tag/源码分析/default.html?page=2)
+

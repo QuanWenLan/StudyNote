@@ -22,6 +22,12 @@ public static void main(String[] args) {
 
 需要注意的是，因调用park（）方法而被阻塞的线程被其他线程中断而返回时并不会抛出InterruptedException异常。 
 
+park函数，**阻塞线程，并且在该线程在下列情况发生之前都会被阻塞**：
+
+1. 调用 unpark 函数，释放线程的许可。
+2. 该线程被中断。
+3. 设置的时间到了，并且time为绝对时间时，isAbsolute为true，否则，isAbsolute为false。当time为0时，表示无限等待，直到unpark发生。
+
 ##### （2）void unpark(Thread thread) 方法 
 
 **当一个线程调用unpark时，如果参数thread线程没有持有thread与LockSupport类关联的许可证，则让thread线程持有**。如果thread之前因调用park（）而被挂起，则调用unpark后，该线程会被唤醒。如果thread之前没有调用park，则调用unpark方法后，再调用park方法，其会立刻返回。 
@@ -121,9 +127,14 @@ private static void setBlocker(Thread t, Object arg) {
     // Even though volatile, hotspot doesn't need a write barrier here.
     UNSAFE.putObject(t, parkBlockerOffset, arg);
 }
+// 说明：此方法用于设置线程t的parkBlocker字段的值为arg。
 ```
 
 Thread类里面有个变量**volatile Object parkBlocker**，用来存放park方法传递的blocker对象，也就是把blocker变量存放到了调用park方法的线程的成员变量里面。
+
+调用park函数时，首先获取当前线程，然后设置当前线程的parkBlocker字段，即调用setBlocker函数，之后调用Unsafe类的park函数，之后再调用setBlocker函数。**那么问题来了，为什么要在此park函数中要调用两次setBlocker函数呢**？
+
+原因其实很简单，调用park函数时，当前线程首先设置好parkBlocker字段，然后再调用Unsafe的park函数，此后，当前线程就已经阻塞了，等待该线程的unpark函数被调用，所以后面的一个setBlocker函数无法运行，unpark函数被调用，该线程获得许可后，就可以继续运行了，也就运行第二个setBlocker，把该线程的parkBlocker字段设置为null，这样就完成了整个park函数的逻辑。如果没有第二个setBlocker，那么之后没有调用park(Object blocker)，而直接调用getBlocker函数，得到的还是前一个park(Object blocker)设置的blocker，显然是不符合逻辑的。总之，必须要保证在park(Object blocker)整个函数执行完后，该线程的parkBlocker字段又恢复为null。所以，park(Object)型函数里必须要调用setBlocker函数两次。
 
 ##### （5）void parkNanos(Object blocker, long nanos)方法 
 
@@ -141,3 +152,163 @@ public static void parkUntil(Object blocker, long deadline) {
 ```
 
 其中参数deadline的时间单位为ms，该时间是从1970年到现在某一个时间点的毫秒值。这个方法和parkNanos（Object blocker, long nanos）方法的区别是，**后者是从当前算等待nanos秒时间**，**而前者是指定一个时间点**，比如需要等到2017.12.11日12:00:00，则把这个时间点转换为从1970年到这个时间点的总毫秒数。
+
+#### 示例说明
+
+##### 实现两线程同步
+
+###### 使用 wait/notify 实现
+
+```java
+package com.hust.grid.leesf.locksupport;
+
+class MyThread extends Thread {
+    
+    public void run() {
+        // 这里的 this 和 下面的 synchronized(myThread)是相同的
+        synchronized (this) {
+            System.out.println("before notify");            
+            notify();
+            System.out.println("after notify");    
+        }
+    }
+}
+
+public class WaitAndNotifyDemo {
+    public static void main(String[] args) throws InterruptedException {
+        MyThread myThread = new MyThread();            
+        synchronized (myThread) {
+            try {        
+                myThread.start();
+                // 主线程睡眠3s
+                Thread.sleep(3000);
+                System.out.println("before wait");
+                // 阻塞主线程
+                myThread.wait();
+                System.out.println("after wait");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }            
+        }        
+    }
+}
+```
+
+输出：
+
+```java
+before wait
+before notify
+after notify
+after wait
+```
+
+###### 使用park和unpark实现
+
+```java
+package com.hust.grid.leesf.entry;
+
+import java.util.concurrent.locks.LockSupport;
+
+class MyThread extends Thread {
+    private Object object;
+
+    public MyThread(Object object) {
+        this.object = object;
+    }
+
+    public void run() {
+        System.out.println("before unpark");
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        // 获取blocker
+        System.out.println("Blocker info " + LockSupport.getBlocker((Thread) object));
+        // 释放许可
+        LockSupport.unpark((Thread) object);
+        // 休眠500ms，保证先执行park中的setBlocker(t, null);
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        // 再次获取blocker
+        System.out.println("Blocker info " + LockSupport.getBlocker((Thread) object));
+
+        System.out.println("after unpark");
+    }
+}
+
+public class test {
+    public static void main(String[] args) {
+        MyThread myThread = new MyThread(Thread.currentThread());
+        myThread.start();
+        System.out.println("before park");
+        // 获取许可
+        LockSupport.park("ParkAndUnparkDemo");
+        System.out.println("after park");
+    }
+}
+```
+
+输出：
+
+```java
+before park
+before unpark
+Blocker info ParkAndUnparkDemo
+after park
+Blocker info null
+after unpark
+```
+
+说明：说明：本程序先执行park，然后在执行unpark，进行同步，并且在unpark的前后都调用了getBlocker，可以看到两次的结果不一样，并且第二次调用的结果为null，这是因为在调用unpark之后，执行了Lock.park(Object blocker)函数中的setBlocker(t, null)函数，所以第二次调用getBlocker时为null。
+
+上例是先调用park，然后调用unpark，现在修改程序，先调用unpark，然后调用park，看能不能正确同步。具体代码如下:
+
+```java
+public class ParkAndUnParkDemo2 {
+    static class MyThread extends Thread {
+        private Object object;
+
+        public MyThread(Object object) {
+            this.object = object;
+        }
+
+        public void run() {
+            System.out.println("before unpark");
+            // 释放许可
+            LockSupport.unpark((Thread) object);
+            System.out.println("after unpark");
+        }
+    }
+
+    public static void main(String[] args) {
+        MyThread myThread = new MyThread(Thread.currentThread());
+        myThread.start();
+        try {
+            // 主线程睡眠3s
+            Thread.sleep(3000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        System.out.println("before park");
+        // 获取许可
+        LockSupport.park("ParkAndUnparkDemo");
+        System.out.println("after park");
+    }
+}
+```
+
+输出：
+
+```java
+before unpark
+after unpark
+before park
+after park
+```
+
+上面方法：void unpark(Thread thread) 有解释运行结果。

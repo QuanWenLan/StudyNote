@@ -270,3 +270,117 @@ public class ReentrantLockList {
 ​																图 6-6 
 
 ReentrantLock的底层是使用AQS实现的**可重入独占锁**。在这里AQS状态值为0表示当前锁空闲，为大于等于1的值则说明该锁已经被占用。该锁内部有公平与非公平实现，默认情况下是非公平的实现。另外，由于该锁是独占锁，所以某时只有一个线程可以获取该锁。
+
+
+
+#### 示例分析:
+
+#### 源码加上图解
+
+原博客: [公平锁示例分析-多个线程获取锁图解](https://www.pdai.tech/md/java/thread/java-thread-x-lock-ReentrantLock.html)
+
+```java
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+class MyThread extends Thread {
+    private Lock lock;
+    public MyThread(String name, Lock lock) {
+        super(name);
+        this.lock = lock;
+    }
+    
+    public void run () {
+        lock.lock();
+        try {
+            System.out.println(Thread.currentThread() + " running");
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+
+public class AbstractQueuedSynchronizerDemo {
+    public static void main(String[] args) throws InterruptedException {
+        Lock lock = new ReentrantLock(true);
+        
+        MyThread t1 = new MyThread("t1", lock);        
+        MyThread t2 = new MyThread("t2", lock);
+        MyThread t3 = new MyThread("t3", lock);
+        t1.start();
+        t2.start();    
+        t3.start();
+    }
+}
+------
+著作权归@pdai所有
+原文链接：https://pdai.tech/md/java/thread/java-thread-x-lock-ReentrantLock.html
+```
+
+运行结果(某一次):
+
+```java
+Thread[t1,5,main] running
+Thread[t2,5,main] running
+Thread[t3,5,main] running
+```
+
+说明: 该示例使用的是公平策略，由结果可知，可能会存在如下一种时序。
+
+![image-20230626135952190](media/images/image-20230626135952190.png)
+
+说明: 首先，t1线程的lock操作 -> t2线程的lock操作 -> t3线程的lock操作 -> t1线程的unlock操作 -> t2线程的unlock操作 -> t3线程的unlock操作。根据这个时序图来进一步分析源码的工作流程.
+
+- （1）t1线程执行lock.lock，下图给出了方法调用中的主要方法.
+
+![image-20230626140044303](media/images/image-20230626140044303.png)
+
+说明: 由调用流程可知，t1线程成功获取了资源，可以继续执行。
+
+- （2）t2线程执行lock.lock，下图给出了方法调用中的主要方法。
+
+![image-20230626141011684](media/images/image-20230626141011684.png)
+
+说明: 由上图可知，最后的结果是t2线程会被禁止，因为调用了LockSupport.park。
+
+- （3）t3线程执行lock.lock，下图给出了方法调用中的主要方法。
+
+![image-20230626141044503](media/images/image-20230626141044503.png)
+
+说明: 由上图可知，最后的结果是t3线程会被禁止，因为调用了LockSupport.park。
+
+- （4）t1线程调用了lock.unlock，下图给出了方法调用中的主要方法。
+
+![image-20230626141124624](media/images/image-20230626141124624.png)
+
+说明: 如上图所示，最后，head的状态会变为0，t2线程会被unpark，即t2线程可以继续运行。此时t3线程还是被禁止。
+
+- （5）t2获得cpu资源，继续运行，由于t2之前被park了，现在需要恢复之前的状态，下图给出了方法调用中的主要方法。（这个AQS:acquireQueued这里右边的图中，第二个节点应该是t2线程的。因为此时回到了t2线程无限循环的上下文，因为此时有一个head和t2这两个节点。）
+
+![image-20230626141156612](media/images/image-20230626141156612.png)
+
+说明: 在setHead函数中会将head设置为之前head的下一个结点，并且将pre域与thread域都设置为null，在acquireQueued返回之前，sync queue就只有两个结点了。
+
+- （6）t2执行lock.unlock，下图给出了方法调用中的主要方法。
+
+![image-20230626145051024](media/images/image-20230626145051024.png)
+
+说明: 由上图可知，最终unpark t3线程，让t3线程可以继续运行。
+
+- （7）t3线程获取cpu资源，恢复之前的状态，继续运行。
+
+![image-20230626145110489](media/images/image-20230626145110489.png)
+
+说明: 最终达到的状态是sync queue中只剩下了一个结点，并且该节点除了状态为0外，其余均为null。
+
+- （8）t3执行lock.unlock，下图给出了方法调用中的主要方法。
+
+![image-20230626145135815](media/images/image-20230626145135815.png)
+
+说明: 最后的状态和之前的状态是一样的，队列中有一个空节点，头节点为尾节点均指向它。
+

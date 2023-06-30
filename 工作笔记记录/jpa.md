@@ -121,49 +121,91 @@ public interface ReportArRepository extends JpaRepository<ReportArRec, ReportArI
 public <T> Page<T> queryPage(JpaSpecificationExecutor<T> repository, StockForm stockForm) {
     log.info("search condition: {}", stockForm);
     Pageable pageable = PageUtils.createPageRequest(stockForm.getPage());
+    PageRequest pageable2 = pageable;
+    // 这里是因为页面有一个字段是 holderId ，数据库是varchar，但是存储的是数字，所以页面排序按照了字符串排序规则排了，这里需要修改为按照数字排
+    if (stockForm.getPage().getSortFields().isEmpty()
+        && stockForm.getPage().getSortTypes().isEmpty()
+        && "holderId".equals(stockForm.getPage().getSortField())) {
+        pageable2 = pageRequestWithoutSort(pageable);
+    }
     return repository.findAll((Specification<T>) (root, query, cb) -> {
-        List<Predicate> predicates = new ArrayList<>();
-
-        if (!StringUtils.isEmpty(stockForm.getStockId())) {
-            predicates.add(cb.equal(root.get("id").get("stockCode").as(String.class), stockForm.getStockId()));
-        }
-
         if (stockForm.getStockIds() != null && !stockForm.getStockIds().isEmpty()) {
-            CriteriaBuilder.In<String> inCondition = cb.in(root.get("id").get("stockCode").as(String.class));
-            for (String stockId : stockForm.getStockIds()) {
-                inCondition.value(stockId);
+                CriteriaBuilder.In<String> inCondition = cb.in(root.get("id").get("stockCode"));
+                for (String stockId : stockForm.getStockIds()) {
+                    inCondition.value(stockId);
+                }
+                predicates.add(inCondition);
             }
-            predicates.add(inCondition);
-        }
 
-        if (stockForm.getYear() != null) {
-            predicates.add(cb.equal(root.get("id").get("reportYear").as(Integer.class), stockForm.getYear()));
-        }
-
-        if (stockForm.getYears() != null && !stockForm.getYears().isEmpty()) {
-            CriteriaBuilder.In<Integer> inCondition = cb.in(root.get("id").get("reportYear").as(Integer.class));
-            for (Integer year : stockForm.getYears()) {
-                inCondition.value(year);
+            if (stockForm.getYears() != null && !stockForm.getYears().isEmpty()) {
+                CriteriaBuilder.In<Integer> inCondition = cb.in(root.get("id").get("reportYear"));
+                for (Integer year : stockForm.getYears()) {
+                    inCondition.value(year);
+                }
+                predicates.add(inCondition);
             }
-            predicates.add(inCondition);
-        }
 
-        if (!StringUtils.isEmpty(stockForm.getQuarter())) {
-            predicates.add(cb.equal(root.get("id").get("reportQuarter").as(String.class), stockForm.getQuarter()));
-        }
-
-        if (stockForm.getQuarters() != null && !stockForm.getQuarters().isEmpty()) {
-            CriteriaBuilder.In<String> inCondition = cb.in(root.get("id").get("reportQuarter").as(String.class));
-            for (String quarter : stockForm.getQuarters()) {
-                inCondition.value(quarter);
+            if (stockForm.getQuarters() != null && !stockForm.getQuarters().isEmpty()) {
+                CriteriaBuilder.In<String> inCondition = cb.in(root.get("id").get("reportQuarter"));
+                for (String quarter : stockForm.getQuarters()) {
+                    inCondition.value(quarter);
+                }
+                predicates.add(inCondition);
             }
-            predicates.add(inCondition);
-        }
 
-        Predicate[] p = new Predicate[predicates.size()];
-        query.where(predicates.toArray(p));
-        return query.where(predicates.toArray(p)).getRestriction();
+
+            if (StringUtils.isNotEmpty(stockForm.getImportTimeFrom()) ) {
+                try {
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+                    Date importTimeFrom =  simpleDateFormat.parse(stockForm.getImportTimeFrom());
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("id").get("importTime"),  importTimeFrom));
+                } catch (ParseException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            if (StringUtils.isNotEmpty(stockForm.getImportTimeTo())) {
+                try {
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+                    Date importTimeTo =  simpleDateFormat.parse(stockForm.getImportTimeTo());
+                    predicates.add(cb.lessThanOrEqualTo(root.get("id").get("importTime"), importTimeTo));
+                } catch (ParseException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+// 这里就是修改排序
+            if (stockForm.getPage().getSortFields().isEmpty()
+                && stockForm.getPage().getSortTypes().isEmpty()
+                && "holderId".equals(stockForm.getPage().getSortField())) {
+                List<Order> criteriaOrders =
+                    pageable.getSort().stream().map(
+                        order -> mapSortOrderToCriteriaOrder(order, root, cb, "holderId")).collect(Collectors.toList());
+                Predicate[] p = new Predicate[predicates.size()];
+                query.where(predicates.toArray(p));
+                return query.where(predicates.toArray(p)).orderBy(criteriaOrders).getRestriction();
+            }
+            else {
+                Predicate[] p = new Predicate[predicates.size()];
+                query.where(predicates.toArray(p));
+                return query.where(predicates.toArray(p)).getRestriction();
+            }
     }, pageable);
+}
+
+private Order mapSortOrderToCriteriaOrder(
+    Sort.Order sortOrder,
+    Root<?> root,
+    CriteriaBuilder criteriaBuilder,
+    String property) {
+    Expression<?> expression = root.get(sortOrder.getProperty());
+    if (property.equals(sortOrder.getProperty())) {
+        expression = expression.as(Integer.class);
+    }
+    return sortOrder.isAscending() ? criteriaBuilder.asc(expression) : criteriaBuilder.desc(expression);
+}
+
+private PageRequest pageRequestWithoutSort(PageRequest pageRequest) {
+    return PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize());
 }
 ```
 
@@ -196,7 +238,7 @@ public class PageUtils {
      * @param pages 分页数据
      * @return 分页对象
      */
-    public static Pageable createPageRequest(Pages pages) {
+    public static PageRequest createPageRequest(Pages pages) {
         Sort sort;
         if (pages.getSortFields().isEmpty() && pages.getSortTypes().isEmpty()) {
             Sort.Direction direction = pages.getSortType().equals(Sort.Direction.DESC.name()) ? Sort.Direction.DESC : Sort.Direction.ASC;
