@@ -372,8 +372,7 @@ final boolean nonfairTryAcquire(int acquires) {
 }
 ```
 
-成功获取锁的线程再次获取锁，只是增加了同步状态值，这也就要求ReentrantLock在释放
-同步状态时减少同步状态值。
+成功获取锁的线程再次获取锁，只是增加了同步状态值，这也就要求ReentrantLock在释放同步状态时减少同步状态值。
 
 ```java
 protected final boolean tryRelease(int releases) {
@@ -418,8 +417,7 @@ protected final boolean tryAcquire(int acquires) {
 }
 ```
 
-该方法与nonfairTryAcquire(int acquires)比较，唯一不同的位置为判断条件多了hasQueuedPredecessors()方法，即加入了**同步队列中当前节点是否有前驱节点的判断，如果该方法返回true，则表示有线程比当前线程更早地请求获取锁，因此需要等待前驱线程获取并释**
-**放锁之后才能继续获取锁**。
+该方法与nonfairTryAcquire(int acquires)比较，唯一不同的位置为判断条件多了hasQueuedPredecessors()方法，即加入了**同步队列中当前节点是否有前驱节点的判断，如果该方法返回true，则表示有线程比当前线程更早地请求获取锁，因此需要等待前驱线程获取并释放锁之后才能继续获取锁**。
 
 #### 5.4 读写锁
 
@@ -444,8 +442,7 @@ protected final boolean tryAcquire(int acquires) {
 
 假设**当前同步状态值为S**，写状态等于S&0x0000FFFF（**将高16位全部抹去**），读状态等于S>>>16（**无符号补0右移16位**）。当写状态增加1时，等于S+1，当读状态增加1时，等于S+(1<<16)，也就是S+0x00010000。    
 
-根据状态的划分能得出一个推论：S不等于0时，当写状态（S&0x0000FFFF）等于0时，则读
-状态（S>>>16）大于0，即读锁已被获取。  
+根据状态的划分能得出一个推论：S不等于0时，当写状态（S&0x0000FFFF）等于0时，则读状态（S>>>16）大于0，即读锁已被获取。  
 
 ###### 2 写锁的获取与释放
 
@@ -560,8 +557,7 @@ public void conditionSignal() throws InterruptedException {
 
 ##### condition的实现与分析
 
-ConditionObject是同步器AbstractQueuedSynchronizer的内部类，因为Condition的操作需要
-获取相关联的锁，所以作为同步器的内部类也较为合理。每个Condition对象都包含着一个队列（以下称为等待队列），该队列是Condition对象实现等待/通知功能的关键。
+ConditionObject是同步器AbstractQueuedSynchronizer的内部类，因为Condition的操作需要获取相关联的锁，所以作为同步器的内部类也较为合理。每个Condition对象都包含着一个队列（以下称为等待队列），该队列是Condition对象实现等待/通知功能的关键。
 
 ###### 1 等待队列
 
@@ -612,8 +608,7 @@ public final void await() throws InterruptedException {
 
 ###### 3 通知
 
-调用Condition的signal()方法，将会唤醒在等待队列中等待时间最长的节点（首节点），在
-唤醒节点之前，会将节点移到同步队列中。  
+调用Condition的signal()方法，将会唤醒在等待队列中等待时间最长的节点（首节点），在唤醒节点之前，会将节点移到同步队列中。  
 
 ![image-20230227150010810](media/images/image-20230227150010810.png)
 
@@ -628,15 +623,13 @@ public final void signal() {
 ```
 
 调用该方法的前置条件是当前线程必须获取了锁，可以看到signal()方法进行了
-isHeldExclusively()检查，也就是当前线程必须是获取了锁的线程。接着获取等待队列的首节
-点，将其移动到同步队列并使用LockSupport唤醒节点中的线程。  
+isHeldExclusively()检查，也就是当前线程必须是获取了锁的线程。接着获取等待队列的首节点，将其移动到同步队列并使用LockSupport唤醒节点中的线程。  
 
 ![image-20230227150101470](media/images/image-20230227150101470.png)
 
 通过调用同步器的enq(Node node)方法，等待队列中的头节点线程安全地移动到同步队列。当节点移动到同步队列后，当前线程再使用LockSupport唤醒该节点的线程。  
 
-被唤醒后的线程，将从await()方法中的while循环中退出（isOnSyncQueue(Node node)方法
-返回true，节点已经在同步队列中），进而调用同步器的acquireQueued()方法加入到获取同步状态的竞争中。
+被唤醒后的线程，将从await()方法中的while循环中退出（isOnSyncQueue(Node node)方法返回true，节点已经在同步队列中），进而调用同步器的acquireQueued()方法加入到获取同步状态的竞争中。
 
 成功获取同步状态（或者说锁）之后，被唤醒的线程将从先前调用的await()方法返回，此时该线程已经成功地获取了锁。
 
@@ -650,13 +643,11 @@ Condition的signalAll()方法，相当于对等待队列中的每个节点均执
 
 （1）线程不安全的HashMap  
 
-HashMap在并发执行put操作时会引起死循环，是因为多线程会导致HashMap的Entry链表
-形成环形数据结构，一旦形成环形数据结构，Entry的next节点永远不为空，就会产生死循环获取Entry。  
+HashMap在并发执行put操作时会引起死循环，是因为多线程会导致HashMap的Entry链表形成环形数据结构，一旦形成环形数据结构，Entry的next节点永远不为空，就会产生死循环获取Entry。  
 
 （2）效率低下的HashTable  
 
-HashTable容器使用synchronized来保证线程安全，但在线程竞争激烈的情况下HashTable
-的效率非常低下。因为当一个线程访问HashTable的同步方法，其他线程也访问HashTable的同步方法时，会进入阻塞或轮询状态。如线程1使用put进行元素添加，线程2不但不能使用put方法添加元素，也不能使用get方法来获取元素，所以竞争越激烈效率越低。
+HashTable容器使用synchronized来保证线程安全，但在线程竞争激烈的情况下HashTable的效率非常低下。因为当一个线程访问HashTable的同步方法，其他线程也访问HashTable的同步方法时，会进入阻塞或轮询状态。如线程1使用put进行元素添加，线程2不但不能使用put方法添加元素，也不能使用get方法来获取元素，所以竞争越激烈效率越低。
 
 （3）ConcurrentHashMap的锁分段技术可有效提升并发访问率  
 
@@ -672,8 +663,7 @@ ConcurrentHashMap是由Segment数组结构和HashEntry数组结构组成。**Seg
 
 ##### 6.3.1 什么是阻塞队列
 
-阻塞队列（BlockingQueue）是一个支持两个附加操作的队列。这两个附加的操作支持阻塞
-的插入和移除方法。
+阻塞队列（BlockingQueue）是一个支持两个附加操作的队列。这两个附加的操作支持阻塞的插入和移除方法。
 
 ）支持阻塞的插入方法：意思是当队列满时，队列会阻塞插入元素的线程，直到队列不满。
 
@@ -708,26 +698,24 @@ ConcurrentHashMap是由Segment数组结构和HashEntry数组结构组成。**Seg
 
 ###### ArrayBlockingQueue
 
-ArrayBlockingQueue是一个**用数组实现的有界阻塞队列**。此队列按照先进先出（FIFO）的原
-则对元素进行排序。
+ArrayBlockingQueue是一个**用数组实现的有界阻塞队列**。此队列按照先进先出（FIFO）的原则对元素进行排序。
 
 **默认情况下不保证线程公平的访问队列**，所谓公平访问队列是指阻塞的线程，可以按照阻塞的先后顺序访问队列，即先阻塞线程先访问队列。非公平性是对先等待的线程是非公平的，当队列可用时，阻塞的线程都可以争夺访问队列的资格，有可能先阻塞的线程最后才访问队列。
 
 ###### LinkedBlockingQueue
 
-LinkedBlockingQueue是一个用**链表实现的有界阻塞队列**。此队列的默认和最大长度为
-Integer.MAX_VALUE。**此队列按照先进先出的原则对元素进行排序**。
+LinkedBlockingQueue是一个用**链表实现的有界阻塞队列**。此队列的默认和最大长度为Integer.MAX_VALUE。**此队列按照先进先出的原则对元素进行排序**。
 
 ###### PriorityBlockingQueue
 
 PriorityBlockingQueue是一个**支持优先级的无界阻塞队列**。**默认情况下元素采取自然顺序升序排列**。
 
-也可以自定义类实现compareTo()方法来指定元素排序规则，或者初始化
-PriorityBlockingQueue时，指定构造参数Comparator来对元素进行排序。**需要注意的是不能保证同优先级元素的顺序**。  
+也可以自定义类实现compareTo()方法来指定元素排序规则，或者初始化PriorityBlockingQueue时，指定构造参数Comparator来对元素进行排序。**需要注意的是不能保证同优先级元素的顺序**。  
 
 ###### DelayQueue
 
 DelayQueue是一个**支持延时获取元素的无界阻塞队列**。**队列使用PriorityQueue来实现**。队列中的元素必须实现Delayed接口，在创建元素时可以指定多久才能从队列中获取当前元素。
+
 只有在延迟期满时才能从队列中提取元素。
 
 应用场景
@@ -739,8 +727,7 @@ DelayQueue是一个**支持延时获取元素的无界阻塞队列**。**队列�
 
 ###### SynchronousQueue  
 
-SynchronousQueue是**一个不存储元素的阻塞队列**。每一个put操作必须等待一个take操作，
-否则不能继续添加元素。
+SynchronousQueue是**一个不存储元素的阻塞队列**。每一个put操作必须等待一个take操作，否则不能继续添加元素。
 
 它支持公平访问队列。**默认情况下线程采用非公平性策略访问队列**。使用以下构造方法可以创建公平性访问的SynchronousQueue，如果设置为true，则等待的线程会采用先进先出的顺序访问队列。  
 
@@ -753,8 +740,7 @@ public SynchronousQueue(boolean fair) {
 }
 ```
 
-SynchronousQueue可以看成是一个传球手，负责把生产者线程处理的数据直接传递给消费
-者线程。队列本身并不存储任何元素，非常适合传递性场景。SynchronousQueue的吞吐量高于LinkedBlockingQueue和ArrayBlockingQueue。
+SynchronousQueue可以看成是一个传球手，负责把生产者线程处理的数据直接传递给消费者线程。队列本身并不存储任何元素，非常适合传递性场景。SynchronousQueue的吞吐量高于LinkedBlockingQueue和ArrayBlockingQueue。
 
 ###### LinkedTransferQueue
 
@@ -1082,8 +1068,7 @@ CachedThreadPool的maximumPool是无界的。这意味着，**如果主线程提
 2. 当初始maximumPool为空，或者maximumPool中当前没有空闲线程时，将没有线程执行 SynchronousQueue.poll（keepAliveTime，TimeUnit.NANOSECONDS）。这种情况下，步骤 1 将失败。此时CachedThreadPool会创建一个新线程执行任务，execute()方法执行完成。
 3.   在步骤2）中新创建的线程将任务执行完后，会执行SynchronousQueue.poll（keepAliveTime，TimeUnit.NANOSECONDS）。这个poll操作会让空闲线程最多在SynchronousQueue中等待60秒钟。如果60秒钟内主线程提交了一个新任务（主线程执行步骤1），那么这个空闲线程将执行主线程提交的新任务；否则，这个空闲线程将终止。由于空闲60秒的空闲线程会被终止，因此长时间保持空闲的CachedThreadPool不会使用任何资源。 
 
-**SynchronousQueue是一个没有容量的阻塞队列**。**每个插入操作必须等待另一个线程的对应移除操作，反之亦然**。CachedThreadPool使用SynchronousQueue，把主线程提交的
-任务传递给空闲线程执行。CachedThreadPool中任务传递的示意图如图10-7所示 
+**SynchronousQueue是一个没有容量的阻塞队列**。**每个插入操作必须等待另一个线程的对应移除操作，反之亦然**。CachedThreadPool使用SynchronousQueue，把主线程提交的任务传递给空闲线程执行。CachedThreadPool中任务传递的示意图如图10-7所示：
 
  ![image-20230228170438352](media/images/image-20230228170438352.png)
 

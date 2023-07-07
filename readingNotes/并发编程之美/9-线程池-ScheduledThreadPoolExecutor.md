@@ -152,6 +152,31 @@ private void delayedExecute(RunnableScheduledFuture<?> task) {
 }
 ```
 
+> ```java
+> // 判断 run-after-shutdown 参数
+> boolean canRunInCurrentRunState(boolean periodic) {
+>     return isRunningOrShutdown(periodic ?
+>                                continueExistingPeriodicTasksAfterShutdown :
+>                                executeExistingDelayedTasksAfterShutdown);
+> }
+> ```
+>
+> 此时有两种情况：
+>
+> A： 如果池正在运行，或者 run-after-shutdown 参数值为true，则调用父类方法ensurePrestart启动一个新的线程等待执行任务。
+>
+> ```java
+> void ensurePrestart() {
+>     int wc = workerCountOf(ctl.get());
+>     if (wc < corePoolSize)
+>         addWorker(null, true);
+>     else if (wc == 0)
+>         addWorker(null, false);
+> }
+> ```
+>
+> B：如果池已经关闭，并且 run-after-shutdown 参数值为false，则执行父类(ThreadPoolExecutor)方法remove移除队列中的指定任务，成功移除后调用ScheduledFutureTask.cancel取消任务。
+
 代码（7）确保至少有一个线程在处理任务，即使核心线程数 corePoolSize 被设置为0。
 
 ```java
@@ -397,6 +422,50 @@ public ScheduledFuture<?> scheduleAtFixedRate(Runnable command,
 总结：
 
 相对于fixed-delay任务来说，**fixed-rate方式执行规则为，时间为initdelday +n*period时启动任务，但是如果当前任务还没有执行完，下一次要执行任务的时间到了，则不会并发执行，下次要执行的任务会延迟执行，要等到当前任务执行完毕后再执行**。
+
+##### shutDown() 方法
+
+```java
+public void shutdown() {
+    super.shutdown();
+}
+// 最终是会走到这个方法的。
+//取消并清除由于关闭策略不应该运行的所有任务
+@Override void onShutdown() {
+    BlockingQueue<Runnable> q = super.getQueue();
+    //获取run-after-shutdown参数
+    boolean keepDelayed =
+        getExecuteExistingDelayedTasksAfterShutdownPolicy();
+    boolean keepPeriodic =
+        getContinueExistingPeriodicTasksAfterShutdownPolicy();
+    if (!keepDelayed && !keepPeriodic) {//池关闭后不保留任务
+        //依次取消任务
+        for (Object e : q.toArray())
+            if (e instanceof RunnableScheduledFuture<?>)
+                ((RunnableScheduledFuture<?>) e).cancel(false);
+        q.clear();//清除等待队列
+    }
+    else {//池关闭后保留任务
+        // Traverse snapshot to avoid iterator exceptions
+        //遍历快照以避免迭代器异常
+        for (Object e : q.toArray()) {
+            if (e instanceof RunnableScheduledFuture) {
+                RunnableScheduledFuture<?> t =
+                    (RunnableScheduledFuture<?>)e;
+                if ((t.isPeriodic() ? !keepPeriodic : !keepDelayed) ||
+                    t.isCancelled()) { // also remove if already cancelled
+                    //如果任务已经取消，移除队列中的任务
+                    if (q.remove(t))
+                        t.cancel(false);
+                }
+            }
+        }
+    }
+    tryTerminate(); //终止线程池
+}
+```
+
+方法的主要作用是在关闭线程池后取消并清除由于关闭策略不应该运行的所有任务，这里主要是根据 run-after-shutdown 参数(continueExistingPeriodicTasksAfterShutdown和executeExistingDelayedTasksAfterShutdown)来决定线程池关闭后是否关闭已经存在的任务。
 
 #### 总结
 

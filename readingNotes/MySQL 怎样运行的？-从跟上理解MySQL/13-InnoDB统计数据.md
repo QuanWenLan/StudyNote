@@ -18,7 +18,7 @@ CREATE TABLE 表名 (...) Engine=InnoDB, STATS_PERSISTENT = (1|0);
 ALTER TABLE 表名 Engine=InnoDB, STATS_PERSISTENT = (1|0);
 ```
 
-**当 STATS_PERSISTENT=1 时，表明我们想把该表的统计数据永久的存储到磁盘上，当 STATS_PERSISTENT=0 时，表 明我们想把该表的统计数据临时的存储到内存中**。**如果我们在创建表时未指定 STATS_PERSISTENT 属性，那默认 采用系统变量 innodb_stats_persistent 的值作为该属性的值**。
+**当 STATS_PERSISTENT=1 时，表明我们想把该表的统计数据永久的存储到磁盘上，当 STATS_PERSISTENT=0 时，表明我们想把该表的统计数据临时的存储到内存中**。**如果我们在创建表时未指定 STATS_PERSISTENT 属性，那默认采用系统变量 innodb_stats_persistent 的值作为该属性的值**。
 
 #### 2 基于磁盘的永久性统计数据
 
@@ -33,7 +33,7 @@ ALTER TABLE 表名 Engine=InnoDB, STATS_PERSISTENT = (1|0);
 
 ##### 2.1 innodb_table_stats
 
-注意这个表的主键是 (database_name,table_name) ，也就是**innodb_table_stats表的每条记录代表着一个表的统 计信息**。
+注意这个表的主键是 (database_name,table_name) ，也就是**innodb_table_stats表的每条记录代表着一个表的统计信息**。
 
 ![image-20220117161515489](media/images/image-20220117161515489.png)
 

@@ -327,3 +327,47 @@ Semaphore（int permits）接受一个整型的数字，表示可用的许可证
 
 Semaphore（10）表示允许10个线程获取许可证，也就是最大并发数是10。Semaphore的用法也很简单，**首先线程使用Semaphore的acquire()方法获取一个许可证，使用完之后调用release()方法归还许可证**。还可以用tryAcquire()方法尝试获取许可证。  
 
+#### 面试题
+
+> 原文链接：https://pdai.tech/md/java/thread/java-thread-x-juc-tool-semaphore.html
+
+##### 单独使用Semaphore是不会使用到AQS的条件队列的
+
+不同于CyclicBarrier和ReentrantLock，单独使用Semaphore是不会使用到AQS的条件队列的，其实，只有进行await操作才会进入条件队列，其他的都是在同步队列中，只是当前线程会被park。
+
+#####  场景问题
+
+##### semaphore初始化有10个令牌，11个线程同时各调用1次acquire方法，会发生什么?
+
+答案：拿不到令牌的线程阻塞，不会继续往下运行。
+
+##### semaphore初始化有10个令牌，一个线程重复调用11次acquire方法，会发生什么?
+
+答案：线程阻塞，不会继续往下运行。可能你会考虑类似于锁的重入的问题，很好，但是，令牌没有重入的概念。你只要调用一次acquire方法，就需要有一个令牌才能继续运行。
+
+##### semaphore初始化有1个令牌，1个线程调用一次acquire方法，然后调用两次release方法，之后另外一个线程调用acquire(2)方法，此线程能够获取到足够的令牌并继续运行吗?
+
+答案：能，原因是release方法会添加令牌，并不会以初始化的大小为准。
+
+##### semaphore初始化有2个令牌，一个线程调用1次release方法，然后一次性获取3个令牌，会获取到吗?
+
+答案：能，原因是release会添加令牌，并不会以初始化的大小为准。Semaphore中release方法的调用并没有限制要在acquire后调用。
+
+具体示例如下，如果不相信的话，可以运行一下下面的demo，在做实验之前，笔者也认为应该是不允许的。
+
+```java
+public class TestSemaphore2 {
+    public static void main(String[] args) {
+        int permitsNum = 2;
+        final Semaphore semaphore = new Semaphore(permitsNum);
+        try {
+            System.out.println("availablePermits:"+semaphore.availablePermits()+",semaphore.tryAcquire(3,1, TimeUnit.SECONDS):"+semaphore.tryAcquire(3,1, TimeUnit.SECONDS));
+            semaphore.release();
+            System.out.println("availablePermits:"+semaphore.availablePermits()+",semaphore.tryAcquire(3,1, TimeUnit.SECONDS):"+semaphore.tryAcquire(3,1, TimeUnit.SECONDS));
+        }catch (Exception e) {
+
+        }
+    }
+}
+```
+

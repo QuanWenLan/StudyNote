@@ -100,24 +100,120 @@ System.out.println(s == "abcd"); // true
 
 我们知道finally{}中的语句是一定会执行的，那么这个可能正常脱口而出就是return之前，return之后可能就出了这个方法了，鬼知道跑哪里去了，但**更准确的应该是在return中间执行**，请看下面程序代码的运行结果：
 
+> 可以看字节码的相关这篇博客：[Java中try finally 的原理(字节码解释)](https://juejin.cn/post/6844903520475283469)
+>
+> **finally 的代码块编译后都会接到 try 代码块之后**。
+>
+> 1.如果 try 代码块中return ,就return 了。
+>
+> 2.如果 try 代码块后还有代码继续执行，则会出现 goto 指令，跳转到下段指令，然后在 exception table 中注册了 any 异常。如果在 try 内抛了异常，就会去异常表找到 any，然后跳转到对应的 target 代码段继续执行。
+
 ```Java
 System.out.println(test2()); // 主函数 ，结果是1
 public int test2() {
-        int x = 1;
-        try {
-           return x;
-        } finally {
-            ++x;
-        }
+    int x = 1;
+    try {
+        return x;
+    } finally {
+        ++x;
     }
+}
 ```
 
 运行结果是1，为什么呢？主函数调用子函数并得到结果的过程，好比主函数准备一个空罐子，当子函数要返回结果时，先把结果放在罐子里，然后再将程序逻辑返回到主函数。所谓返回，就是子函数说，我不运行了，你主函数继续运行吧，这没什么结果可言，结果是在说这话之前放进罐子里的。
 
+- finally语句会在return语句（无论是在try也还是catch）之前执行。
+
+- 在执行finally语句之前，已将方法内的返回值保存起来，finally语句块对该值进行操作都不会改变该值。
+
 ###### try catch finally中return 代码返回位置不一样，返回什么结果
 
-###### try catch finally 里面自定义异常代码块，catch的应该是哪个
+```java
+public static String doTryFinally1() {
+    String name = null;
+    try {
+        name = "zhuang";
+        return name;
+    } finally {
+        name = "zhuang111111";
+    }
+}
+public static String doTryFinally2() {
+    String name = null;
+    try {
+        name = "zhuang";
+        return name;
+    } catch (Exception e) {
+        e.printStackTrace();
+    } finally {
+        name = "zhuang111111";
+        return name;
+    }
+}
+// 输出结果：
+// doTryFinally1 : zhuang
+// doTryFinally2 : zhuang111111
+```
 
+###### try catch finally 里面自定义异常代码块，catch的应该是哪个。
+
+```java
+public static String doTryFinally6() {
+    String name = null;
+    try {
+        name = "zhuang";
+        int a = 1/0;
+    } catch (Exception e) {
+        name = "444444";
+        return name;
+    } finally {
+        name = "zhuang111111";
+    }
+    return name;
+}
+// 输出：444444
+```
+
+多级异常：
+
+有三级catch语句进行异常捕捉，捕获到的条件是try语句块抛出的异常是catch语句中的异常或者其子类，捕捉顺序为由上至下（上级catch的异常不能是下一级catch异常的超类（父类，superclass）），若第一级catch未捕获，则由下一级catch验证捕捉，若异常已被捕捉，则之后的catch语句块就不会再捕捉。
+
+第一级捕获异常：这三个异常是 NullPointerException extends RuntimeException，RuntimeException extends Exception 的关系。
+
+```java
+@Test
+void nullPointExceptionTest(){
+    Staff staff = null;
+    try{
+        staff.getAge();
+    }catch (NullPointerException e){
+        System.out.println("NullPointerException");
+    }catch (RuntimeException e){
+        System.out.println("RuntimeException");
+    }catch (Exception e){
+        System.out.println("Exception");
+    }
+}
+// 输出 NullPointerException
+```
+第二级：第一级未捕获异常
+
+```java
+@Test
+void mutilLevelCatchTest1(){
+    ArrayList<Object> list = new ArrayList<>();
+    try{
+        list.get(7);
+    }catch (NullPointerException e){
+        System.out.println("NullPointerException");
+    }catch (RuntimeException e){
+        System.out.println("RuntimeException");
+    }catch (Exception e){
+        System.out.println("Exception");
+    }
+}
+// 输出：RuntimeException
+```
 ##### 能将 int 强制转换为 byte 类型的变量吗？如果该值大于 byte 类型的范围，将会出现什么现象？ 
 
 可以进行强制转换，但是Java中int是32位的，而byte是8位的，所以如果强制转换的话，int类型的高24位将会被丢弃。因为byte类型的范围是从-128到127。

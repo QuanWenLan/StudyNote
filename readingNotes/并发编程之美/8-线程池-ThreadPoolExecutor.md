@@ -64,8 +64,6 @@ private final HashSet<Worker> workers = new HashSet<Worker>();
 private final Condition termination = mainLock.newCondition();
 ```
 
-
-
 ###### 线程池状态含义：
 
 - **RUNNING**：接受新任务并且处理阻塞队列里的任务。
@@ -81,8 +79,6 @@ private final Condition termination = mainLock.newCondition();
 -  **SHUTDOWN -> TIDYING** ：当线程池和任务队列都为空时。
 -  **STOP -> TIDYING** ：当线程池为空时。
 -  **TIDYING -> TERMINATED**：当terminated（）hook方法执行完成时。
-
-
 
 线程池的创建，最终都会到这个函数中来：
 
@@ -167,8 +163,26 @@ public ThreadPoolExecutor(int corePoolSize,
 ###### **线程池类型**
 
 - **newFixedThreadPool** ：创建一个核心线程个数和最大线程个数都为nThreads的线程池，并且阻塞队列长度为Integer.MAX_VALUE。keeyAliveTime=0说明只要线程个数比核心线程个数多并且当前空闲则回收。
+
+  线程池的线程数量达corePoolSize后，即使线程池没有可执行任务时，也不会释放线程。
+
+  阻塞队列是 `LinkedBlockingQueue`，队列的容量是`Integer.MAX_VALUE`，这回导致以下两个问题：
+
+  - 由于使用了无界队列, 所以FixedThreadPool永远不会拒绝, 即饱和策略失效。
+  - 线程池里的线程数量不超过corePoolSize,这导致了maximumPoolSize和keepAliveTime将会是个无用参数。
+
 - **newSingleThreadExecutor**：创建一个核心线程个数和最大线程个数都为1的线程池，并且阻塞队列长度为Integer.MAX_VALUE。keeyAliveTime=0说明只要线程个数比核心线程个数多并且当前空闲则回收。
+
+  由于使用了无界队列, 所以FixedThreadPool永远不会拒绝, 即饱和策略失效。
+
 - **newCachedThreadPool** ：创建一个按需创建线程的线程池，初始线程个数为0，最多线程个数为Integer.MAX_VALUE，并且阻塞队列为同步队列。keeyAliveTime=60说明只要当前线程在60s内空闲则回收。这个类型的特殊之处在于，加入同步队列的任务会被马上执行，同步队列里面最多只有一个任务。
+
+  > （1）主线程调用SynchronousQueue的offer()方法放入task, 倘若此时线程池中有空闲的线程尝试读取 SynchronousQueue的task, 即调用了SynchronousQueue的poll(), 那么主线程将该task交给空闲线程. 否则执行(2)。
+  >
+  > （2）当线程池为空或者没有空闲的线程, 则创建新的线程执行任务。
+  >
+  > （3）执行完任务的线程倘若在60s内仍空闲, 则会被终止. 因此长时间空闲的CachedThreadPool不会持有任何线程资源。
+
 
 ##### 3 源码分析  
 
@@ -248,6 +262,7 @@ public void execute(Runnable command) {
 
 ```java
 private boolean addWorker(Runnable firstTask, boolean core) {
+    // cas 更新线程池数量
     retry:
     for (;;) {
         int c = ctl.get();
