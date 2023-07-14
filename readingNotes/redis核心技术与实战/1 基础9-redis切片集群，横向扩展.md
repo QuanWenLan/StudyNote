@@ -55,6 +55,23 @@
 
 具体的映射过程分为两大步：**首先根据键值对的 key，按照 CRC16 算法计算一个 16 bit的值；然后，再用这个 16bit 值对 16384 取模，得到 0~16383 范围内的模数，每个模数代表一个相应编号的哈希槽**。  
 
+为什么是对 16384 取模，而不是其他的数值呢？
+
+https://github.com/antirez/redis/issues/2576
+
+https://www.cnblogs.com/rjzheng/p/11430592.html
+
+> - Normal heartbeat packets carry the full configuration of a node, that can be replaced in an idempotent way with the old in order to update an old config. This means they contain the slots configuration for a node, in raw form, that uses 2k of space with16k slots, but would use a prohibitive 8k of space using 65k slots.
+> - At the same time it is unlikely that Redis Cluster would scale to more than 1000 mater nodes because of other design tradeoffs.
+>
+> So 16k was in the right range to ensure enough slots per master with a max of 1000 maters, but a small enough number to propagate the slot configuration as a raw bitmap easily. Note that in small clusters the bitmap would be hard to compress because when N is small the bitmap would have slots/N bits set that is a large percentage of bits set.
+>
+> 正常的心跳包携带节点的完整配置，可以以幂等方式替换旧的配置，以便更新旧的配置。这意味着它们包含节点的插槽配置，以原始形式，使用2k的空间和16k插槽，但使用65k插槽将使用令人望而却步的8k空间。
+>
+> 同时，由于其他设计上的权衡，Redis集群不太可能扩展到超过1000个节点。
+>
+> 因此，16k(16384/1024=16)是一个合适的范围，可以确保每个主机有足够的插槽，最多有1000个主机，但这个数字足够小，可以很容易地将插槽配置传播为原始位图。请注意，在小集群中，位图很难压缩，因为当N很小时，位图将设置槽/N位，这是设置位的很大百分比。
+
 那么，这些**哈希槽又是如何被映射到具体的 Redis 实例上的呢**？  
 
 我们在部署 Redis Cluster 方案时，可以使用 cluster create 命令创建集群，此时，**Redis会自动把这些槽平均分布在集群实例上**。 
@@ -122,9 +139,7 @@ GET hello:key
 
 这个结果中的 ASK 命令就表示，客户端请求的键值对所在的哈希槽 13320，在 172.16.19.5 这个实例上，但是这个哈希槽正在迁移。此时，客户端需要先给 172.16.19.5 这个实例发送一个 ASKING 命令。这个命令的意思是，让这个实例允许执行客户端接下来发送的命令。然后，客户端再向这个实例发送 GET 命令，以读取数据。
 
-**ASK 命令表示两层含义：第一，表明 Slot 数据还在迁移中；第二，ASK 命令把客户端所**
-**请求数据的最新实例地址返回给客户端**，此时，客户端需要给实例 3 发送 ASKING 命令，
-然后再发送操作命令。
+**ASK 命令表示两层含义：第一，表明 Slot 数据还在迁移中；第二，ASK 命令把客户端所请求数据的最新实例地址返回给客户端**，此时，客户端需要给实例 3 发送 ASKING 命令，然后再发送操作命令。
 
 和 MOVED 命令不同，**ASK 命令并不会更新客户端缓存的哈希槽分配信息**。  
 

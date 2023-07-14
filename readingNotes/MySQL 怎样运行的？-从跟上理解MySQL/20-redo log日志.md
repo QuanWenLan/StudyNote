@@ -314,6 +314,10 @@ redo 日志是首先写到 log buffer 中，之后才会被刷新到磁盘上的
 
 我们前边说 lsn 是表示当前系统中写入的 redo 日志量，这包括了写到 log buffer 而没有刷新到磁盘的日志，相应的，设计 InnoDB 的大叔提出了一个**表示刷新到磁盘中的 redo 日志量的全局变量，称之为flushed_to_disk_lsn** 。**系统第一次启动时，该变量的值和初始的 lsn 值是相同的，都是 8704** 。随着系统的运行， redo 日志被不断写入 log buffer ，**但是并不会立即刷新到磁盘， lsn 的值就和 flushed_to_disk_lsn 的值拉开了差距**。
 
+
+
+综上所述，**当有新的 redo 日志写入到 log buffer 时，首先 lsn 的值会增长，但 flushed_to_disk_lsn 不变，随后随着不断有 log buffer 中的日志被刷新到磁盘上， flushed_to_disk_lsn 的值也跟着增长**。**如果两者的值相同时，说明log buffer中的所有redo日志都已经刷新到磁盘中了**。
+
 ##### 2.2 lsn值和redo日志文件偏移量的对应关系
 
 因为 lsn 的值是代表系统写入的 redo 日志量的一个总和，一个 mtr 中产生多少日志， lsn 的值就增加多少（当然有时候要加上 log block header 和 log block trailer 的大小），这样 mtr 产生的日志写到磁盘中时，很容易计算某一个 lsn 值在 redo 日志文件组中的偏移量，如图：
@@ -369,7 +373,7 @@ redo 日志是首先写到 log buffer 中，之后才会被刷新到磁盘上的
 
 - 步骤一：**计算一下当前系统中可以被覆盖的 redo 日志对应的 lsn 值最大是多少**。
 
-  redo 日志可以被覆盖，意味着它对应的脏页被刷到了磁盘，只要我们计算出当前系统中被最早修改的脏页对应的 oldest_modification 值，那**凡是在系统lsn值小于该节点的oldest_modification值时产生的redo日志都是可以被覆盖掉的**，我们就把该脏页的 oldest_modification 赋值给 checkpoint_lsn 。
+  **redo 日志可以被覆盖，意味着它对应的脏页被刷到了磁盘**，只要我们计算出当前系统中被最早修改的脏页对应的 oldest_modification 值，那**凡是在系统lsn值小于该节点的oldest_modification值时产生的redo日志都是可以被覆盖掉的**，我们就把该脏页的 oldest_modification 赋值给 checkpoint_lsn 。
 
   比方说**当前系统中 页a 已经被刷新到磁盘，那么 flush链表 的尾节点就是 页c ，该节点就是当前系统中最早修改的脏页了**，它的 oldest_modification 值为8916，我们就把8916赋值给 checkpoint_lsn （也就是说在redo日志对应的lsn值小于8916时就可以被覆盖掉）。
 

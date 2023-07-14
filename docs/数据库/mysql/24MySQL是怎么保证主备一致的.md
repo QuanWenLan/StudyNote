@@ -171,8 +171,6 @@ mysqlbinlog  -vv data/master.000001 --start-position=8900;
 
 比如我们这个例子，设置为 mixed 后，就会记录为 row 格式；而如果执行的语句去掉 limit 1，就会记录为 statement 格式。
 
-比如我们这个例子，设置为 mixed 后，就会记录为 row 格式；而如果执行的语句去掉 limit 1，就会记录为 statement 格式。
-
 当然我要说的是，**现在越来越多的场景要求把 MySQL 的 binlog 格式设置成 row**。这么做的理由有很多，我来给你举一个可以直接看出来的好处：**恢复数据**。
 
 接下来，我们就分别从 delete、insert 和 update 这三种 SQL 语句的角度，来看看数据恢复的问题。
