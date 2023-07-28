@@ -393,7 +393,67 @@ jdk1.8后是直接把节点放到扩容后原有链表的**尾部**
 
 **2）对树进行操作时**
 
+https://blog.csdn.net/yueyezhufeng/article/details/126099528
 
+主要出现问题的地方是：
+
+```java
+static <K,V> TreeNode<K,V> balanceInsertion(TreeNode<K,V> root,
+                                            TreeNode<K,V> x) {
+    x.red = true;
+    for (TreeNode<K,V> xp, xpp, xppl, xppr;;) {
+        if ((xp = x.parent) == null) {
+            x.red = false;
+            return x;
+        }
+        else if (!xp.red || (xpp = xp.parent) == null)
+            return root;
+        if (xp == (xppl = xpp.left)) {
+            if ((xppr = xpp.right) != null && xppr.red) {
+                xppr.red = false;
+                xp.red = false;
+                xpp.red = true;
+                x = xpp;
+            }
+            else {
+                if (x == xp.right) {
+                    root = rotateLeft(root, x = xp);
+                    xpp = (xp = x.parent) == null ? null : xp.parent;
+                }
+                if (xp != null) {
+                    xp.red = false;
+                    if (xpp != null) {
+                        // 这里出现问题
+                        xpp.red = true;
+                        root = rotateRight(root, xpp);
+                    }
+                }
+            }
+        }
+        else {
+            if (xppl != null && xppl.red) {
+                xppl.red = false;
+                xp.red = false;
+                xpp.red = true;
+                x = xpp;
+            }
+            else {
+                if (x == xp.left) {
+                    root = rotateRight(root, x = xp);
+                    xpp = (xp = x.parent) == null ? null : xp.parent;
+                }
+                if (xp != null) {
+                    xp.red = false;
+                    if (xpp != null) {
+                        xpp.red = true;
+                        root = rotateLeft(root, xpp);
+                    }
+                }
+            }
+        }
+    }
+}
+```
 
 ##### 线程的状态之间的转换
 
@@ -402,3 +462,5 @@ jdk1.8后是直接把节点放到扩容后原有链表的**尾部**
 ##### AQS的理解
 
 ##### 线程的run()方法和没有使用start()方法的差别。
+
+##### 线程池如何分配线程数，使用线程池注意事项

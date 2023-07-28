@@ -161,7 +161,7 @@ public final void acquireSharedInterruptibly(int arg)
     // (1)如果线程被中断，则抛出中断异常
     if (Thread.interrupted())
         throw new InterruptedException();
-    // (2)否则调用 Sync 子类方法尝试获取，这里根据构造韩式确定使用公平策略
+    // (2)否则调用 Sync 子类方法尝试获取，这里根据构造函数确定使用公平策略
     if (tryAcquireShared(arg) < 0)
         // 如果获取失败则放入阻塞队列。然后再次尝试，如果失败则调用 park 方法挂起当前线程
         doAcquireSharedInterruptibly(arg);

@@ -64,7 +64,7 @@ System.out.println(str4 == str5);//false
 
 上面的代码运行之后会输出什么呢？
 
-答案是：false,false
+答案是：false,true,false
 
 **这是为什么呢？**
 

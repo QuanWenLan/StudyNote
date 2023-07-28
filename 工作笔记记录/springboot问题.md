@@ -773,6 +773,99 @@ public static void main(String[] args) throws IOException {
 我是反序列化User{username='小明', password='123', age=18}
 ```
 
+#### 使用 Gson 将对象格式化成JSON
+
+```java
+    private static TypeAdapter<ErrorCode> errorCodeTypeAdapter = new TypeAdapter<ErrorCode>() {
+        @Override
+        public ErrorCode read(final JsonReader in) throws IOException {
+            return null;
+        }
+
+        @Override
+        public void write(final JsonWriter out, final ErrorCode errorCode) throws IOException {
+            if (errorCode == null) {
+                out.value("");
+            }
+            else {
+                out.value(errorCode.getValue());
+            }
+        }
+    };
+
+    public static Gson create() {
+        Gson gson =
+            new com.google.gson.GsonBuilder().registerTypeAdapter(
+                ErrorCode.class,
+                errorCodeTypeAdapter).serializeNulls().setDateFormat("yyyyMMddHHmmss").create();
+        return gson;
+    }
+    
+    public static Gson create2() {
+        Gson gson =
+            new com.google.gson.GsonBuilder().registerTypeAdapter(ErrorCode.class, new EnumSerializer()).serializeNulls().setDateFormat("yyyyMMddHHmmss").create();
+        return gson;
+    }
+    
+    // 添加这个类型适配器，会将对象里的 ErrorCode转换成对应的字符串，以及会转换null和设置时间格式类型。
+    public static Gson create(String dateFormat) {
+        Gson gson =
+            new com.google.gson.GsonBuilder().registerTypeAdapter(
+                ErrorCode.class,
+                errorCodeTypeAdapter).serializeNulls().setDateFormat(dateFormat).create();
+        return gson;
+    }
+}
+
+public enum ErrorCode {
+
+    Success("00000000"),
+    Failed("00000001");
+
+    private String value;
+
+    ErrorCode(String value) {
+        this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+        return value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    public boolean isSuccess() {
+        return this == Success;
+    }
+
+    public static ErrorCode getCode(String value) {
+        return Arrays.stream(ErrorCode.values()).filter(
+                errorCode -> StringUtils.equals(errorCode.getValue(), value)).findFirst().orElse(Failed);
+    }
+} 
+```
+
+使用方式：
+
+```java
+GsonBuilder.create().toJson(response)
+```
+
+配置文件：
+
+```xml
+<dependency>
+    <groupId>com.google.code.gson</groupId>
+    <artifactId>gson</artifactId>
+    <version>2.10.1</version>
+</dependency>
+```
+
+这样就可以将对象中的所有属性都格式化成 json 字段了，可以和 JsonFilter搭配使用。
+
 #### post请求参数接收
 
 [SpringBoot]@RequestParam接收不到POST请求的数据。

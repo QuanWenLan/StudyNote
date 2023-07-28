@@ -182,6 +182,10 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
 }
 ```
 
+**TransactionalEventListener**
+
+第一部分用于向Spring容器注册TransactionalEventListener工厂，TransactionalEventListener是Spring4.2引入的新特性，允许我们自定义监听器监听事务的提交或其它动作。
+
 在解析中存在对于mode属性的判断，根据代码，如果我们需要使用AspectJ的方式进行事务切入（Spring中的事务是以AOP为基础的），那么可以使用这样的配置： 
 
 `<tx:annotation-driven transaction-manager="transactionManager" mode="aspectj" />`
@@ -195,7 +199,7 @@ public BeanDefinition parse(Element element, ParserContext parserContext) {
 ```java 
 public static void configureAutoProxyCreator(Element element, ParserContext parserContext) {
             /**
-            重点语句
+            重点语句！！！！！！
             */ 			AopNamespaceUtils.registerAutoProxyCreatorIfNecessary(parserContext, element);
 
 			String txAdvisorBeanName = TransactionManagementConfigUtils.TRANSACTION_ADVISOR_BEAN_NAME;
@@ -236,6 +240,7 @@ public static void configureAutoProxyCreator(Element element, ParserContext pars
 				if (element.hasAttribute("order")) {
 					advisorDef.getPropertyValues().add("order", element.getAttribute("order"));
 				}
+                // 注册bean，txAdvisorBeanName = org.springframework.transaction.config.internalTransactionAdvisor
 				parserContext.getRegistry().registerBeanDefinition(txAdvisorBeanName, advisorDef);
 
 				CompositeComponentDefinition compositeDef = new CompositeComponentDefinition(element.getTagName(), eleSource);
@@ -336,7 +341,7 @@ protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) 
       return bean;
    }
 
-   // Create proxy if we have advice.
+   // Create proxy if we have advice.这里就是去找对应的拦截器也就是增强，事务或者是aop
    Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
    if (specificInterceptors != DO_NOT_PROXY) {
       this.advisedBeans.put(cacheKey, Boolean.TRUE);
@@ -417,7 +422,7 @@ protected List<Advisor> findCandidateAdvisors() {
 }
 ```
 
-具体的执行方法在：`private BeanFactoryAdvisorRetrievalHelper advisorRetrievalHelper;` 类里面
+具体的执行方法在：`private BeanFactoryAdvisorRetrievalHelper advisorRetrievalHelper;` 类里面。此时这个：cachedAdvisorBeanNames 就是我们前面在 `AopAutoProxyConfigurer.configureAutoProxyCreator` 中调用的时候，注册的 `TRANSACTION_ADVISOR_BEAN_NAME=org.springframework.transaction.config.internalTransactionAdvisor`，也就是说会利用这个类去找增强，而这个bean name 对应的类则是：`BeanFactoryTransactionAttributeSourceAdvisor`，其中是有 `transactionAttributeSource` 属性的。
 
 ```java
 public List<Advisor> findAdvisorBeans() {
@@ -446,7 +451,7 @@ public List<Advisor> findAdvisorBeans() {
          }
          else {
             try {
-                // ******
+                // ******这里获取的就是 BeanFactoryTransactionAttributeSourceAdvisor 这个bean，同时它又是实现了 Advisor 接口的
                advisors.add(this.beanFactory.getBean(name, Advisor.class));
                 // ******
             }
@@ -489,6 +494,8 @@ public <T> T getBean(String name, Class<T> requiredType) throws BeansException {
 ```
 
 或许你已经忘了之前留下的悬念，在我们讲解自定义标签时曾经注册了一个类型为**BeanFactoryTransactionAttributeSourceAdvisor**的bean，而在此bean中我们又注入了另外两个Bean，那么此时这个Bean就会被开始使用了，这个 bean 实现了 Advisor 接口的。
+
+![image-20230719172134034](media/images/image-20230719172134034.png)
 
 **因为BeanFactoryTransactionAttributeSourceAdvisor同样也实现了Advisor接口，那么在获取所有增强器时自然也会将此bean提取出来，并随着其他增强器一起在后续的步骤中被织入代理**。
 
@@ -542,7 +549,9 @@ public static List<Advisor> findAdvisorsThatCanApply(List<Advisor> candidateAdvi
 }
 ```
 
-canyApply的源码
+canyApply的源码，调用的debug，可以看到clazz是我们使用事务注解的类。
+
+![image-20230719172451082](media/images/image-20230719172451082.png)
 
 ```java
 public static boolean canApply(Advisor advisor, Class<?> targetClass, boolean hasIntroductions) {
@@ -563,7 +572,9 @@ public static boolean canApply(Advisor advisor, Class<?> targetClass, boolean ha
 
 当前我们分析的是对于UserService是否适用于此增强方法，那么当前的advisor就是之前查找出来的类型为BeanFactoryTransactionAttributeSourceAdvisor的bean实例，而通过类的层次结构我们又知道：BeanFactoryTransactionAttributeSourceAdvisor间接实现了PointcutAdvisor。
 
-因此，在canApply函数中的第二个if判断时就会通过判断，会将BeanFactory TransactionAttributeSourceAdvisor中的getPointcut()方法返回值作为参数继续调用canApply方法，而getPoint()方法返回的是**TransactionAttributeSourcePointcut**类型的实例。
+因此，在canApply函数中的第二个if判断时就会通过判断，会将
+
+BeanFactory TransactionAttributeSourceAdvisor中的getPointcut()方法返回值作为参数继续调用canApply方法，而getPoint()方法返回的是**TransactionAttributeSourcePointcut**类型的实例。
 
 对于transactionAttributeSource这个属性大家还有印象吗？这是在解析自定义标签时注入进去的。
 
@@ -580,6 +591,10 @@ public Pointcut getPointcut() {
     return this.pointcut;
 }
 ```
+
+此时返回的pointcut如下，是先前属性设置进去的。
+
+![image-20230719172700158](media/images/image-20230719172700158.png)
 
 那么，使用`TransactionAttributeSourcePointcut`类型的实例作为函数参数继续跟踪canApply。
 
@@ -624,9 +639,11 @@ public static boolean canApply(Pointcut pc, Class<?> targetClass, boolean hasInt
 }
 ```
 
+![image-20230719173015989](media/images/image-20230719173015989.png)
+
 通过上面函数大致可以理清大体脉络，首先获取对应类的所有接口并连同类本身一起遍历，遍历过程中又对类中的方法再次遍历，一旦匹配成功便认为这个类适用于当前增强器。
 
-到这里我们不禁会有疑问，对于事物的配置不仅仅局限于在函数上配置，我们都知道，在类活接口上的配置可以延续到类中的每个函数，那么，如果针对每个函数进行检测，在类本身上配置的事务属性岂不是检测不到了吗？带着这个疑问，我们继续探求matcher方法。
+到这里我们不禁会有疑问，对于事物的配置不仅仅局限于在函数上配置，我们都知道，在类或接口上的配置可以延续到类中的每个函数，那么，如果针对每个函数进行检测，在类本身上配置的事务属性岂不是检测不到了吗？带着这个疑问，我们继续探求matcher方法。
 
 做匹配的时候methodMatcher.matches(method, targetClass)会使用TransactionAttributeSourcePointcut类的matches方法。
 
@@ -681,13 +698,15 @@ public TransactionAttribute getTransactionAttribute(Method method, @Nullable Cla
 }
 ```
 
+![image-20230719173259055](media/images/image-20230719173259055.png)
+
 很遗憾，在getTransactionAttribute函数中并没有找到我们想要的代码，这里是指常规的一贯的套路。尝试从缓存加载，如果对应信息没有被缓存的话，工作又委托给了computeTransactionAttribute函数，在computeTransactionAttribute函数中终于的我们看到了事务标签的提取过程。
 
 ##### 3 提取事务标签
 
 ```Java
 protected TransactionAttribute computeTransactionAttribute(Method method, @Nullable Class<?> targetClass) {
-   // Don't allow no-public methods as required.
+   // Don't allow no-public methods as required.这里就指明了，非 public 方法是不能有事务的
    if (allowPublicMethodsOnly() && !Modifier.isPublic(method.getModifiers())) {
       return null;
    }
@@ -696,7 +715,7 @@ protected TransactionAttribute computeTransactionAttribute(Method method, @Nulla
    // If the target class is null, the method will be unchanged.
    Method specificMethod = AopUtils.getMostSpecificMethod(method, targetClass);
 
-   // First try is the method in the target class. 查看方法中是否妇女在事务声明
+   // First try is the method in the target class. 查看方法中是否在事务声明
    TransactionAttribute txAttr = findTransactionAttribute(specificMethod);
    if (txAttr != null) {
       return txAttr;
@@ -726,7 +745,7 @@ protected TransactionAttribute computeTransactionAttribute(Method method, @Nulla
 }
 ```
 
-对于事务属性的获取规则相信大家都已经很清楚，如果方法中存在事务属性，则使用方法上的属性，否则使用方法所在的类上的属性，如果方法所在类的属性上还是没有搜寻到对应的事务属性，那么再搜寻接口中的方法，再没有的话，最后尝试搜寻接口的类上面的声明。对于函数computeTransactionAttribute中的逻辑与我们所认识的规则并无差别，但是上面函数中并没有真正的去做搜寻事务属性的逻辑，而是搭建了个执行框架，将搜寻事务属性的任务委托给了**findTransactionAttribute**方法去执行。
+对于事务属性的获取规则相信大家都已经很清楚，**如果方法中存在事务属性，则使用方法上的属性，否则使用方法所在的类上的属性，如果方法所在类的属性上还是没有搜寻到对应的事务属性，那么再搜寻接口中的方法，再没有的话，最后尝试搜寻接口的类上面的声明**。对于函数computeTransactionAttribute中的逻辑与我们所认识的规则并无差别，但是上面函数中并没有真正的去做搜寻事务属性的逻辑，而是搭建了个执行框架，将搜寻事务属性的任务委托给了**findTransactionAttribute**方法去执行。
 
 `org.springframework.transaction.annotation.AnnotationTransactionAttributeSource#findTransactionAttribute(java.lang.reflect.Method)`
 
@@ -814,6 +833,10 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
 
 又**因为在解析事务定义标签时我们把TransactionInterceptor类型的bean注入到了BeanFactoryTransactionAttributeSourceAdvisor中**，所以，**在调用事务增强器增强的代理类时会首先执行TransactionInterceptor进行增强，同时，也就是在TransactionInterceptor类中的invoke方法中完成了整个事务的逻辑**。  
 
+最后返回创建的是一个JDK的代理，因为它是实现了接口的。
+
+![image-20230719173521637](media/images/image-20230719173521637.png)
+
 #### 总结 
 
 ##### 流程图
@@ -861,17 +884,23 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
 3. 获取 beanFactory：（AbstractApplicationContext.java）
    ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
-4. 继续往下，调用 refreshBeanFactory() 方法，这里面调用 loadBeanDefinitions(beanFactory) 解析 xml 文件
+4. 继续往下，调用 refreshBeanFactory() 方法，位置：org.springframework.context.support.AbstractRefreshableApplicationContext#refreshBeanFactory
 
-5. 调用加载 beanDefinitions(beanFactory) beanFactory = DefaultListableBeanFactory 
+   这里面调用 loadBeanDefinitions(beanFactory) 解析 xml 文件。
 
-6. 根据 beanFactory 生成 beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory) 用来读取配置文件，继续往下进入 loadBeanDefinitions(beanDefini) 
+5. 调用加载 beanDefinitions(beanFactory) beanFactory = DefaultListableBeanFactory 、
+
+   会调用到org.springframework.context.support.AbstractXmlApplicationContext#loadBeanDefinitions(org.springframework.beans.factory.support.DefaultListableBeanFactory)
+
+6. 根据 beanFactory 生成 beanDefinitionReader = new XmlBeanDefinitionReader(beanFactory) 用来读取配置文件，继续往下进入 loadBeanDefinitions(beanDefinitionReader) 
 
 7. 调用 beanDefinitionReader.loadBeanDefinitions(configLocations); configLocations 是配置文件，是一个数组，我们此时这里只有一个
 
-8. XmlBeanDefinitionReader 继承了 AbstractBeanDefinitionReader，所以调用的 loadBeanDefinitions(configLocations) 方法是在里运行的，指load一次，因为只有一个配置文件
+8. XmlBeanDefinitionReader 继承了 AbstractBeanDefinitionReader，所以调用的 loadBeanDefinitions(configLocations) 方法是在里运行的，只load一次，因为只有一个配置文件
 
 9. 开始进行 loadBeanDefinitions(location == "tx.xml", null);
+
+   > org.springframework.beans.factory.support.AbstractBeanDefinitionReader#loadBeanDefinitions(java.lang.String, java.util.Set<org.springframework.core.io.Resource>)
 
 10. 根据不同的 Resource 返回统一的 ResourceLoader 接口，开始初始化代码的时候，ResourceLoader 是 ResourcePatternResolver 类的，调用这个类的 getResource(location) 获取到 Resource,再加载 Resources（此时我们返回的是 ClassPathResource）
 
@@ -905,31 +934,82 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
     <"http://www.springframework.org/schema/tx ", "org.springframework.transaction.config.TxNamespaceHandler">
     根据类名也就是value创建这个类
 
-19. namespaceHandler.init();初始化方法，注册解析标签的类 		registerBeanDefinitionParser("advice", new TxAdviceBeanDefinitionParser());
-    registerBeanDefinitionParser("annotation-driven", new AnnotationDrivenBeanDefinitionParser());
-    registerBeanDefinitionParser("jta-transaction-manager", new JtaTransactionManagerBeanDefinitionParser()); 放到了 TxNamespaceHandler 的parser 的map中去了
+19. namespaceHandler.init();初始化方法，注册解析标签的类，**所以说一开始就解析到这个命名空间，然后开始执行这个TxNamespaceHandler的parse方法，随后会将这几个类注册进来**。 		
+
+    > registerBeanDefinitionParser("advice", new TxAdviceBeanDefinitionParser());
+    > registerBeanDefinitionParser("annotation-driven", new AnnotationDrivenBeanDefinitionParser());
+    > registerBeanDefinitionParser("jta-transaction-manager", new JtaTransactionManagerBeanDefinitionParser()); 放到了 TxNamespaceHandler 的parser 的map中去了
+    >
+    > 这几个类是在 `NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);` 的里面调用的时候就调用到了init方法。
+    >
+    > ```java
+    > //org.springframework.beans.factory.xml.DefaultNamespaceHandlerResolver#resolve
+    > NamespaceHandler namespaceHandler = (NamespaceHandler) BeanUtils.instantiateClass(handlerClass);
+    > namespaceHandler.init();
+    > handlerMappings.put(namespaceUri, namespaceHandler);
+    > return namespaceHandler;
+    > ```
 
 20. 返回TxNamespaceHandler，随后调用 TxNamespaceHandler.parser(ele,new ParserContext(this.readerContext, this, containingBd)) 方法，ele 还是 <tx:..> 这个
 
 21. parse(Element element, ParserContext parserContext)方法中，
-    BeanDefinitionParser parser = findParserForElement(element, parserContext) 返回的便是刚刚注册的 AnnotationDrivenBeanDefinitionParser 类了，继而调用 该类的 parser.parse(element, parserContext) 方法
+    BeanDefinitionParser parser = findParserForElement(element, parserContext) 返回的便是刚刚注册的 AnnotationDrivenBeanDefinitionParser 类了，继而调用 该类的 parser.parse(element, parserContext) 方法。
+
+    >```java
+    >执行parse方法public BeanDefinition parseCustomElement(Element ele, @Nullable BeanDefinition containingBd) {
+    >   String namespaceUri = getNamespaceURI(ele);
+    >   if (namespaceUri == null) {
+    >      return null;
+    >   }
+    >   NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
+    >   if (handler == null) {
+    >      error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
+    >      return null;
+    >   }
+    >   return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
+    >}
+    >public class TxNamespaceHandler extends NamespaceHandlerSupport {...}
+    >public abstract class NamespaceHandlerSupport implements NamespaceHandler {...}
+    >```
+    >
+    >执行parse方法
+    >
+    >```java
+    >return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
+    >```
+    >
+    >执行到  NamespaceHandlerSupport的parse
+    >
+    >```java
+    >public BeanDefinition parse(Element element, ParserContext parserContext) {
+    >   BeanDefinitionParser parser = findParserForElement(element, parserContext);
+    >   return (parser != null ? parser.parse(element, parserContext) : null);
+    >}
+    >```
+    >
+    >最后又到了AnnotationDrivenBeanDefinitionParser中去执行了。
 
 22. 随后就走到了判断 mode 是 aspectj 还是 proxy 的地方，往下走就走到了
     AopAutoProxyConfigurer.configureAutoProxyCreator(element, parserContext);解析的地放了
 
 23. 继续往下则是：AopNamespaceUtils.registerAutoProxyCreatorIfNecessary(parserContext, element);
 
-24. 继续调用 BeanDefinition beanDefinition = AopConfigUtils.registerAutoProxyCreatorIfNecessary(
+24. 继续调用 
+
+    ```java
+    BeanDefinition beanDefinition = AopConfigUtils.registerAutoProxyCreatorIfNecessary(
     parserContext.getRegistry(), parserContext.extractSource(sourceElement));
+    registerOrEscalateApcAsRequired(InfrastructureAdvisorAutoProxyCreator.class, registry, source); 
+    ```
 
-    registerOrEscalateApcAsRequired(InfrastructureAdvisorAutoProxyCreator.class, registry, source); 注册 InfrastructureAdvisorAutoProxyCreator 类了
+    注册 InfrastructureAdvisorAutoProxyCreator 类了
 
-24. 后面则是注册这个类的逻辑，注册完毕之后则回到23步.注册的bean是
+25. 后面则是注册这个类的逻辑，注册完毕之后则回到23步.注册的bean是
     key："org.springframework.aop.config.internalAutoProxyCreator" 
     value: InfrastructureAdvisorAutoProxyCreator 
     后面的逻辑也就是文章里面解析的逻辑了 
 
-25. 随后添加了文中提到的3个bean了，到目前位置，beanDefinitionsMap 一共有5个bena被注册进去了
+26. 随后添加了文中提到的3个bean了，到目前位置，beanDefinitionsMap 一共有5个bena被注册进去了
     TransactionalEventListenerFactory
     InfrastructureAdvisorAutoProxyCreator
 
@@ -939,7 +1019,7 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
 
     ![image-20211126155406191](media/images/image-20211126155406191.png)
 
-26. 最后回到一开始的调用方法 obtainFreshBeanFactory(); 这时候已经初始化完了 BeanFactory 为 DefaultListableBeanFactory 了。
+27. 最后回到一开始的调用方法 obtainFreshBeanFactory(); 这时候已经初始化完了 BeanFactory 为 DefaultListableBeanFactory 了。
 
 ---
 
@@ -959,6 +1039,8 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
 2. 调用 Aware 接口（如果实现了接口的话）
 3. 调用 applyBeanPostProcessorsBeforeInitialization 方法
 4. 调用 init-method 方法
+   - 如果实现了 InitializingBean 接口，先调用 afterPropertiesSet 方法
+   - 如果又 init-method 方法，则调用自定义的 init-method 方法
 5. 调用 applyBeanPostProcessorsAfterInitialization 方法
 
 UserService 使用了使用了注解 `@Transactional(propagation = Propagation.REQUIRED)` ，而这个类获取的 BeanPostProcessors 如下图所示：
@@ -978,6 +1060,13 @@ UserService 使用了使用了注解 `@Transactional(propagation = Propagation.R
 ### 3 事务增强器
 
 当调用方法的时候，获取的到 bean 是spring使用 JDK代理创建的，所以会调用 JdkDynamicAopProxy 类的 invoke 方法。这里面有些判断会让流程走到下面这个类中。
+
+```java
+org.springframework.aop.framework.JdkDynamicAopProxy#invoke
+org.springframework.aop.framework.ReflectiveMethodInvocation#proceed
+```
+
+在上面的方法里会调用到这个类**TransactionInterceptor**中的 invoke 方法里面来。
 
 **TransactionInterceptor支撑着整个事务功能的架构**，逻辑还是相对复杂的，那么现在我们切入正题来分析此拦截器是如何实现事务特性的。
 
@@ -1299,8 +1388,6 @@ protected boolean isExistingTransaction(Object transaction) {
 
 ![image-20211125122813570](media/images/image-20211125122813570.png)
 
-
-
 上面 startTransaction 调用的：
 
 ```java
@@ -1475,6 +1562,8 @@ public static Integer prepareConnectionForTransaction(Connection con, @Nullable 
 
 7. 将事务信息记录在当前线程中。prepareSynchronization(status, definition);
 
+   org.springframework.transaction.support.AbstractPlatformTransactionManager#startTransaction
+   
    ```java
    /**
     * Initialize transaction synchronization as appropriate.
@@ -1496,7 +1585,7 @@ public static Integer prepareConnectionForTransaction(Connection con, @Nullable 
 
 之前讲述了普通事务建立的过程，但是Spring中支持多种事务的传播规则，比如**PROPAGATION_NESTED**、**PROPAGATION_REQUIRES_NEW**等，这些都是在已经存在事务的基础上进行进一步的处理，那么，对于已经存在的事务，准备操作是如何进行的呢？
 
-返回到之前的代码 getTransaction 中，查看 handleExistingTransaction
+返回到之前的代码 getTransaction 中，查看 handleExistingTransaction，源码中的体现，事务传播机制
 
 ```java
 /**
@@ -1505,12 +1594,12 @@ public static Integer prepareConnectionForTransaction(Connection con, @Nullable 
 private TransactionStatus handleExistingTransaction(
 			TransactionDefinition definition, Object transaction, boolean debugEnabled)
 			throws TransactionException {
-// PROPAGATION_NEVER 传播类型
+// PROPAGATION_NEVER 不支持当前线程事务，如果当前线程事务存在，直接抛出异常
 		if (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_NEVER) {
 			throw new IllegalTransactionStateException(
 					"Existing transaction found for transaction marked with propagation 'never'");
 		}
-// PROPAGATION_NOT_SUPPORTED 传播类型
+// PROPAGATION_NOT_SUPPORTED 不支持当前线程事务，挂起当前线程事务，以非事务方式运行
 		if (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_NOT_SUPPORTED) {
 			if (debugEnabled) {
 				logger.debug("Suspending current transaction");
@@ -1520,7 +1609,7 @@ private TransactionStatus handleExistingTransaction(
 			return prepareTransactionStatus(
 					definition, null, false, newSynchronization, debugEnabled, suspendedResources);
 		}
-// PROPAGATION_REQUIRES_NEW 传播类型
+// PROPAGATION_REQUIRES_NEW 如果当前线程事务存在，挂起当前线程事务，开启一个新事务运行
 		if (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_REQUIRES_NEW) {
 			if (debugEnabled) {
 				logger.debug("Suspending current transaction, creating new transaction with name [" +
@@ -1538,6 +1627,7 @@ private TransactionStatus handleExistingTransaction(
 		}
 
    // PROPAGATION_NESTED 传播类型，嵌入式的事务处理
+    // 以嵌套方式运行，如果当前事务存在，行为和PROPAGATION_REQUIRED一样，否则没有事务
 		if (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_NESTED) {
 			if (!isNestedTransactionAllowed()) {
 				throw new NestedTransactionNotSupportedException(
@@ -1565,6 +1655,8 @@ private TransactionStatus handleExistingTransaction(
 		}
 
 		// Assumably PROPAGATION_SUPPORTS or PROPAGATION_REQUIRED. 大概这两种
+       // PROPAGATION_SUPPORTS 支持当前线程事务，如果当前线程事务存在，如果不存在以非事务方式运行
+   // PROPAGATION_REQUIRED 支持当前线程事务，如果当前线程不存在，创建一个新事物，存在则不创建。
 		if (debugEnabled) {
             // r日志：参与现有事务
 			logger.debug("Participating in existing transaction");
