@@ -326,3 +326,102 @@ protected void doRegisterBeanDefinitions(Element root) {
 
 - BeanPostPocessor
 
+##### 为什么设计 IOC 这个东西，为什么使用
+
+IOC是一种思想：**IOC 让程序员不在关注怎么去创建对象，而是关注与对象创建之后的操作，把对象的创建、初始化、销毁等工作交给spring容器来做**。
+
+###### 传统方式
+
+我们使用对象的时候，都需要去new出来对象，对象与对象之间存在强依赖的关系，耦合度非常高，且依赖关系都写死在了代码里面，项目不易修改和维护，必须要修改代码才行。
+
+- 创建了许多重复对象，造成大量资源浪费；
+- 更换实现类需要改动多个地方；
+- 创建和配置组件工作繁杂，给组件调用方带来极大不便
+
+透过现象看本质，这些问题的出现都是同一个原因：**组件的调用方参与了组件的创建和配置工作**。
+
+如果我们编码时，有一个「东西」能帮助我们创建和配置好那些组件，我们只负责调用该多好。这个「东西」就是容器。
+
+###### IOC 方式
+
+我们可以将需要使用到的类或者接口放在spring 的容器里面，不像传统方式在代码中通过new对象，对象之间相互依赖，导致以后增加接口的话，只能去修改这些相互依赖的地方的源代码，耦合度太高。spring的话就不一样了，我们增加了新的接口或者类，只需要加入到容器中并使用依赖注入，将其依赖进去就行了。
+
+[我们到底为什么要用 IoC 和 AOP](https://www.cnblogs.com/RudeCrab/p/14365296.html)
+
+对象交由容器管理后，默认是单例的，这就解决了资源浪费问题。
+
+若要更换实现类，只需更改 Bean 的声明配置，即可达到无感知更换。
+
+```java
+public class UserServiceImpl implements UserService{
+    ...
+}
+
+// 将该实现类声明为 Bean
+@Component
+public class OtherUserServiceImpl implements UserService{
+    ...
+}
+```
+
+现在组件的使用和组件的创建与配置完全分离开来。调用方只需调用组件而无需关心其他工作，这极大提高了我们的开发效率，也让整个应用充满了灵活性、扩展性。
+
+##### AOP的理解
+
+###### 没有AOP会怎样
+
+但这里的复用的都是**核心业务逻辑**，并不能复用一些**辅助逻辑**，比如：日志记录、性能统计、安全校验、事务管理，等等。这些边缘逻辑往往贯穿你整个核心业务，传统 OOP 很难将其封装：
+
+```java
+public class UserServiceImpl implements UserService {
+    @Override
+    public void doService() {
+        System.out.println("---安全校验---");
+        System.out.println("---性能统计 Start---");
+        System.out.println("---日志打印 Start---");
+        System.out.println("---事务管理 Start---");
+
+        System.out.println("业务逻辑");
+
+        System.out.println("---事务管理 End---");
+        System.out.println("---日志打印 End---");
+        System.out.println("---性能统计 End---");
+    }
+}
+```
+
+为了方便演示，这里只用了打印语句，就算如此这代码看着也很难受，而且这些逻辑是所有业务方法都要加上，想想都恐怖。
+
+OOP 是至上而下的编程方式，犹如一个树状图，A调用B、B调用C，或者A继承B、B继承C。这种方式对于业务逻辑来说是合适的，通过调用或继承以复用。而辅助逻辑就像一把闸刀横向贯穿所有方法，如图2-4所示
+
+![image-20230809095019471](media/images/image-20230809095019471.png)
+
+这一条条横线仿佛切开了 OOP 的树状结构，犹如一个大蛋糕被切开多层，每一层都会执行相同的辅助逻辑，所以大家将这些辅助逻辑称为层面或者切面。
+
+代理模式用来增加或增强原有功能再适合不过了，但切面逻辑的难点不是**不修改原有业务**，而是**对所有业务生效**。对一个业务类增强就得新建一个代理类，对所有业务增强，每个类都要新建代理类，这无疑是一场灾难。而且这里只是演示了一个日志打印的切面逻辑，如果我再加一个性能统计切面，就得新建一个切面代理类来代理日志打印的代理类，一旦切面多起来这个代理类嵌套就会非常深。
+
+面向切面编程（Aspect-oriented programming，缩写为 AOP）正是为了解决这一问题而诞生的技术。
+
+###### 面向切面编程
+
+AOP 不是 OOP 的对立面，它是对 OOP 的一种补充。OOP 是纵向的，AOP 是横向的，两者相结合方能构建出良好的程序结构。AOP 技术，**让我们能够不修改原有代码，便能让切面逻辑在所有业务逻辑中生效**。
+
+```java
+@Aspect // 声明一个切面
+@Component
+public class MyAspect {
+    // 原业务方法执行前
+    @Before("execution(public void com.rudecrab.test.service.*.doService())")
+    public void methodBefore() {
+        System.out.println("===AspectJ 方法执行前===");
+    }
+
+    // 原业务方法执行后
+    @AfterReturning("execution(* com.rudecrab.test.service..doService(..))")
+    public void methodAddAfterReturning() {
+        System.out.println("===AspectJ 方法执行后===");
+    }
+}
+```
+
+无论你有一个业务方法，还是一万个业务方法，对我们开发者来说只需编写一次切面逻辑，就能让所有业务方法生效，极大提高了我们的开发效率。
