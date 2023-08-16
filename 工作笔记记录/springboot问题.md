@@ -1024,4 +1024,3 @@ Spring Boot 2.7下正常无报错
 Spring Boot 3.0.1+ spring data jpa 3.0.1由Spring初始化程序创建。
 
 https://www.saoniuhuo.com/question/detail-2419397.html
-

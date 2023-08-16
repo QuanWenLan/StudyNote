@@ -135,6 +135,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 >
 > 在AuthenticationEntryPoint 接口中，只有一个commence()方法，用来开启认证方案。其中，request是遇到了认证异常的用户请求，response 是将要返回给用户的响应，authException 请求过程中遇见的认证异常。 AuthenticationEntryPoint 实现类，可以修改响应头属性信息或开启新的认证流程。
 
+###### `JwtAuthenticationEntryPoint`
+
 ```java
 @Component
 public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -157,6 +159,79 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.getWriter().flush();
 
 
+    }
+}
+```
+
+###### `SecurityConfiguration` 
+
+```java
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableWebSecurity
+@RequiredArgsConstructor
+public class SecurityConfiguration {
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
+
+    private final String[] AUTH_WHITELIST = {
+            "/web/**",
+            "/api/auth/**",
+            "/loginUser/login"
+    };
+
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+
+    /* SecurityFilterChain 解释
+     * Defines a filter chain which is capable of being matched against an
+ * {@code HttpServletRequest}. in order to decide whether it applies to that request.
+ * <p>
+ * Used to configure a {@code FilterChainProxy}.
+    */
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf()
+                .disable()
+                .exceptionHandling()
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                .and()
+                .authorizeHttpRequests()
+                .requestMatchers(AUTH_WHITELIST)
+                .permitAll()
+                .anyRequest()
+                .authenticated()
+                .and()
+                .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.ALWAYS)
+
+
+                .and().formLogin().loginPage("/web/login")
+                .usernameParameter("userID")
+                .passwordParameter("dPassword")
+                .loginProcessingUrl("/loginUser/login")
+                .defaultSuccessUrl("/web/backOffice",true)
+
+
+                .and()
+                .rememberMe(Customizer.withDefaults())
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+
+
+                
+        return http.build();
     }
 }
 ```

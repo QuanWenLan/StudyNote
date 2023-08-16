@@ -309,25 +309,14 @@ public <T> Page<T> queryPage(JpaSpecificationExecutor<T> repository, StockForm s
             predicates.add(cb.like(root.get("id").get("stockCode").as(String.class), "%" + stockForm.getStockId() + "%"));
         }
 
-        if (stockForm.getStockIds() != null && !stockForm.getStockIds().isEmpty()) {
-            predicates.add(cb.in(root.get("id").get("stockCode").as(String.class).in(stockForm.getStockIds())));
-        }
-
         if (stockForm.getYear() != null) {
             predicates.add(cb.equal(root.get("id").get("reportYear").as(Integer.class), stockForm.getYear()));
-        }
-
-        if (stockForm.getYears() != null && !stockForm.getYears().isEmpty()) {
-            predicates.add(cb.in(root.get("id").get("reportYear").as(Integer.class).in(stockForm.getYears())));
         }
 
         if (!StringUtils.isEmpty(stockForm.getQuarter())) {
             predicates.add(cb.like(root.get("id").get("reportQuarter").as(String.class), "%" + stockForm.getQuarter() + "%"));
         }
 
-        if (stockForm.getQuarters() != null && !stockForm.getQuarters().isEmpty()) {
-            predicates.add(cb.in(root.get("id").get("stockCode").as(String.class).in(stockForm.getStockIds())));
-        }
         Predicate[] p = new Predicate[predicates.size()];
         query.where(predicates.toArray(p));
         // ******* 这里使用 这样排序是没问题的。暂时是先这样解决
