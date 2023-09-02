@@ -80,6 +80,10 @@ private final Condition termination = mainLock.newCondition();
 -  **STOP -> TIDYING** ：当线程池为空时。
 -  **TIDYING -> TERMINATED**：当terminated（）hook方法执行完成时。
 
+###### 线程池状态图
+
+![image-20230806220502969](media/images/image-20230806220502969.png)
+
 线程池的创建，最终都会到这个函数中来：
 
 ```java

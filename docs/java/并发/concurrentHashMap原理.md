@@ -669,6 +669,62 @@ static final <K,V> Node<K,V> tabAt(Node<K,V>[] tab, int i) {
 
 它是对tab[i]进行原子性的读取，因为我们知道putVal等对table的桶操作是有加锁的，那么一般情况下我们对桶的读也是要加锁的，但是我们这边为什么不需要加锁呢？因为我们用了Unsafe的getObjectVolatile，因为table是volatile类型，所以对tab[i]的原子请求也是可见的。因为如果同步正确的情况下，根据happens-before原则，对volatile域的写入操作happens-before于每一个后续对同一域的读操作。所以不管其他线程对table链表或树的修改，都对get读取可见。
 
+#### 初始化
+
+![image-20230807231050015](media/images/image-20230807231050015.png)
+
+```java
+private final Node<K,V>[] initTable() {
+    Node<K,V>[] tab; int sc;
+    while ((tab = table) == null || tab.length == 0) {
+        if ((sc = sizeCtl) < 0)
+            Thread.yield(); // lost initialization race; just spin
+        else if (U.compareAndSetInt(this, SIZECTL, sc, -1)) {
+            try {
+                if ((tab = table) == null || tab.length == 0) {
+                    int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
+                    @SuppressWarnings("unchecked")
+                    // 初始化数组
+                    Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                    table = tab = nt;
+                    // sc复制为了数组长度-数组长度右移2位 16-4=12
+                    // 将 sc 赋值为 下次扩容的阈值
+                    sc = n - (n >>> 2);
+                }
+            } finally {
+                // 将赋值好的 sc，设置给 sizeCtl
+                sizeCtl = sc;
+            }
+            break;
+        }
+    }
+    return tab;
+}
+```
+
+#### 扩容操作
+
+##### treeifyBin 触发的扩容
+
+```java
+// 在链表长度大于等于8时，尝试将链表转为红黑树
+private final void treeifyBin(Node<K,V>[] tab, int index) {
+    Node<K,V> b; int n;
+    // 数组不能为空
+    if (tab != null) {
+        // 数组的长度 n，是否小于 64
+        if ((n = tab.length) < MIN_TREEIFY_CAPACITY)
+            // 如果小于，先进行扩容操作
+            tryPresize(n << 1);
+        // ...
+    }
+}
+```
+
+##### tryPreSize 方法-针对putAll的初始化操作
+
+
+
 ### 其他博客
 
 [ConcurrentHashMap原理详解(太细了)_笑我归无处的博客-CSDN博客_concurrenthashmap原理](https://blog.csdn.net/qq_42068856/article/details/126091526) 

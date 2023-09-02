@@ -890,3 +890,9 @@ if (earlySingletonExposure) {
 ```
 
 循环依赖可以参考： https://www.iflym.com/index.php/code/201208280001.html  
+
+#### 为什么需要三级缓存，二级缓存就已经能够解决循环依赖问题了。
+
+博客：[Spring源码最难问题《当Spring AOP遇上循环依赖》_bugpool的博客-CSDN博客](https://blog.csdn.net/chaitoudaren/article/details/105060882) 
+
+具体就是因为，如果这个bean是被aop代理的类该如何处理。
