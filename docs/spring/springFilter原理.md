@@ -547,3 +547,39 @@ private void internalDoFilter(ServletRequest request,
 最终这些调用的执行链会一个个返回。上面就是Filter调用触发的核心代码了，链式触发调用，在SpringCloudGateway和Netty中都有类型的相关代码，看着这种代码模式很经典啊。（职责链模式）
 
 了解如何会执行到这个地方需要知道Tomcat的一些原理，博客：https://segmentfault.com/u/keguan/articles
+
+
+
+#### 过滤器和拦截器的区别
+
+https://www.cnblogs.com/Java-Starter/p/10444617.html
+
+过滤器先于拦截器执行，后于拦截器执行结束。
+
+![image-20230831142944554](media/images/image-20230831142944554.png)
+
+##### 过滤器
+
+**依赖于servlet容器**。在实现上基于函数回调，可以对几乎所有请求进行过滤，但是缺点是一个过滤器实例只能在容器初始化时调用一次。使用过滤器的目的是用来做一些过滤操作，获取我们想要获取的数据。
+
+比如：在过滤器中修改字符编码；在过滤器中修改HttpServletRequest的一些参数，包括：过滤低俗文字、危险字符等。
+
+##### 拦截器
+
+**依赖于web框架，在SpringMVC中就是依赖于SpringMVC框架**。在实现上基于Java的反射机制，属于面向切面编程（AOP）的一种运用。由于拦截器是基于Web框架的调用。
+
+因此可以使用spring的依赖注入（DI）进行一些业务操作，同时一个拦截器实例在一个controller生命周期之内可以多次调用。但是缺点是只能对controller请求进行拦截，对其他的一些比如直接访问静态资源的请求则没办法进行拦截处理。
+
+#### 总结
+
+总结：业务中尽量使用基于方法的拦截器，在进行一些需要统一处理的业务可以使用基于Servlet的过滤器。
+
+Filter接口用来执行过滤任
+
+CompositeFilter实现filter，用到了组合设计模式
+
+抽象类GenericFilterBean实现Filter接口，负责解析web.xml的Filter的init-param中参数，是所有过滤器的父类。init方法解析web.xml的参数
+
+抽象类OncePerRequestFilter继承GenericFilterBean，doFilter方法根据hasAlreadyFilteredAttribute判断是否执行过滤
+
+CharacterEncodingFilter重写父类OncePerRequestFilter的doFilterInterval方法，调用FilterChain的doDilter方法执行过滤逻辑

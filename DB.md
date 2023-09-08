@@ -441,7 +441,7 @@ MySQL 在真正执行语句之前，并不能精确地知道满足条件的记�
 在 MySQL 中，有两种存储统计数据的方式，可以通过设置参数 `innodb_stats_persistent` 的值来选择：
 
 * ON：表示统计信息会持久化存储（默认），采样页数 N 默认为 20，可以通过 `innodb_stats_persistent_sample_pages` 指定，页数越多统计的数据越准确，但消耗的资源更大
-* OFF：表示统计信息只存储在内存，采样页数 N 默认为 8，也可以通过系统变量设置（不推荐，每次重新计算浪费资源）
+* OFF：表示统计信息只存储在内存，采样页数 N 默认为 8，也可以通过系统变量设置（不推荐，每次重新计算浪费资源） 
 
 数据表是会持续更新的，两种统计信息的更新方式：
 
@@ -521,7 +521,7 @@ KILL QUERY thread_id
 
 KILL 不是马上终止的意思，而是告诉执行线程这条语句已经不需要继续执行，可以开始执行停止的逻辑（类似于打断）。因为对表做增删改查操作，会在表上加 MDL 读锁，如果线程被 KILL 时就直接终止，那这个 MDL 读锁就没机会被释放了
 
-命令 `KILL QUERYthread_id_A` 的执行流程：
+命令 `KILL QUERY thread_id_A` 的执行流程：
 
 * 把 session A 的运行状态改成 THD::KILL_QUERY（将变量 killed 赋值为 THD::KILL_QUERY）
 * 给 session A 的执行线程发一个信号，让 session A 来处理这个 THD::KILL_QUERY 状态
@@ -794,7 +794,7 @@ mysqlshow -uroot -p1234 test book --count
 
   - DDL（Data Definition Language）数据定义语言
 
-    - 用来定义数据库对象：数据库，表，列等。关键字：create、drop,、alter 等
+    - 用来定义数据库对象：数据库，表，列等。关键字：create、drop、alter 等
 
   - DML（Data Manipulation Language）数据操作语言
 
