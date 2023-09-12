@@ -52,7 +52,7 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [26备库为什么会延迟好几个小时](docs/数据库/mysql/26备库为什么会延迟好几个小时.md)   
   - [慢查询日志](docs/数据库/mysql/慢查询日志.md) 
 
-- [《MySQL 怎样运行的？-从根上理解MySQL》](readingNotes/MySQL 怎样运行的？-从跟上理解MySQL)
+- [《MySQL 怎样运行的？从根上理解MySQL》](readingNotes/MySQL 怎样运行的？-从跟上理解MySQL/)
 
 #### Spring 
 
@@ -65,8 +65,8 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [消息JMS](readingNotes/Spring源码解析/Spring源码解析3-消息.md)
   - [事务](readingNotes/Spring源码解析/Spring源码解析4-事务.md) 
   - [事件监听及ApplicationContext](readingNotes/Spring源码解析/Spring-ApplicationContext及事件监听解析.md) 
-  - [Aware接口](readingNotes/Spring源码解析/Spring源码解析 Aware 接口.md) 
-  - [MVC源码解析](readingNotes/Spring源码解析/Spring-MVC 源码md)
+  - [Aware接口](readingNotes/Spring源码解析/Spring源码解析7-Aware 接口) 
+  - [MVC源码解析](readingNotes/Spring源码解析/Spring-MVC 源码.md)
 
 #### Redis 
 
@@ -74,9 +74,32 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
 
 #### 并发
 
-[《并发编程之美》](readingNotes/并发编程之美)
+[《并发编程之美》](readingNotes/并发编程之美) 内容包括这些；
 
-[《并发编程的艺术》](readingNotes/并发编程的艺术)
+
+
+[《并发编程的艺术》](readingNotes/并发编程的艺术) 内容包括这些；
+
+- [死锁](readingNotes/并发编程的艺术/Java并发编程的艺术.md)
+- volatile定义与实现原理
+- synchronized的实现原理与应用（对象头，锁升级）
+- 内存模型
+- 线程状态
+- [Java中的锁](readingNotes/并发编程的艺术/Java中的锁和并发容器.md)
+- AbstractQueuedSynchronizer 队列同步器
+- Condition接口
+- 并发容器
+  - ArrayBlockingQueue：一个由数组结构组成的有界阻塞队列。
+  - LinkedBlockingQueue：一个由链表结构组成的有界阻塞队列。
+  - PriorityBlockingQueue：一个支持优先级排序的无界阻塞队列。
+  - DelayQueue：一个使用优先级队列实现的无界阻塞队列。
+  - SynchronousQueue：一个不存储元素的阻塞队列。
+  - LinkedTransferQueue：一个由链表结构组成的无界阻塞队列。
+  - LinkedBlockingDeque：一个由链表结构组成的双向阻塞队列。  
+- 原子类
+- Executor 框架
+
+
 
 [completableFuture使用](docs/java/并发/completableFuture使用.md)
 
@@ -104,3 +127,6 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
 
 [《小灰的算法学习之旅》](docs/算法/小灰的算法之旅-学习.md)
 
+#### 书单
+
+[书单](java书单.md)
