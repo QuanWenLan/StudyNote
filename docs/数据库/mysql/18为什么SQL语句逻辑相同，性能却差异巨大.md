@@ -162,9 +162,19 @@ sales_order 的字段 order_id 是有主键索引的，总记录数是 79416。o
 
 ![image-20210811095713578](media/images/image-20210811095713578.png)
 
+```mysql
+EXPLAIN SELECT * FROM sales_order so WHERE order_id = 0808000001;
+```
+
+如果是上面查询所有字段则是：
+
+![image-20230911113207985](media/images/image-20230911113207985.png)
+
+如果是只查询order_id字段的话，会使用索引覆盖进行查询，还是使用了优化的。
+
 ![image-20210811095520711](media/images/image-20210811095520711.png)
 
-#### 案例上：隐式字符编码转换   
+#### 案例三：隐式字符编码转换   
 
 假设系统里还有另外一个表 trade_detail，用于记录交易的操作细节。为了便于量化分析和复现，我往交易日志表 tradelog 和交易详情表 trade_detail 这两个表里插入一些数据。  
 
