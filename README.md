@@ -65,8 +65,8 @@ _记录学习过程中的各种技术的笔记，包括面试时候的一些准�
   - [消息JMS](readingNotes/Spring源码解析/Spring源码解析3-消息.md)
   - [事务](readingNotes/Spring源码解析/Spring源码解析4-事务.md) 
   - [事件监听及ApplicationContext](readingNotes/Spring源码解析/Spring-ApplicationContext及事件监听解析.md) 
-  - [Aware接口](readingNotes/Spring源码解析/Spring源码解析7-Aware 接口) 
-  - [MVC源码解析](readingNotes/Spring源码解析/Spring-MVC 源码.md)
+  - [Aware接口](readingNotes/Spring源码解析/Spring源码解析7-Aware接口.md) 
+  - [MVC源码解析](readingNotes/Spring源码解析/Spring-MVC源码.md)
 
 #### Redis 
 
