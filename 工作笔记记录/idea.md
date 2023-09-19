@@ -53,3 +53,19 @@ idea 高版本修改到下面这个位置了。
 
 ![image-20230531171110092](media/images/image-20230531171110092.png)
 
+#### 设置git的代理
+
+```html
+git config --global http.proxy http://代理地址:端口号
+
+git config --global https.proxy https://代理地址:端口号
+```
+
+#### 取消设置代理
+
+```html
+git config --global --unset http.proxy
+
+git config --global --unset https.proxy
+```
+
