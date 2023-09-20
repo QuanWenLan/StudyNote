@@ -1,5 +1,7 @@
 [CompletableFuture入门 | JavaGuide](https://javaguide.cn/java/concurrent/completablefuture-intro.html#简单介绍) 
 
+[从 5s 到 0.5s！看看人家的 CompletableFuture 异步任务优化技巧，确实优雅！](https://mp.weixin.qq.com/s/L5RLrWTzEr_qVXoMQuYedg)
+
 `CompletableFuture` 同时实现了 `Future` 和 `CompletionStage` 接口:
 
 ```java
@@ -21,7 +23,7 @@ Future 接口
 1. 通过 new 关键字。
 2. 基于 `CompletableFuture` 自带的静态工厂方法：`runAsync()` 、`supplyAsync()` 。
 
-##### new 关键字
+#### new 关键字
 
 ```java
 CompletableFuture<RpcResponse<Object>> resultFuture = new CompletableFuture<>();
@@ -63,7 +65,7 @@ public static <U> CompletableFuture<U> completedFuture(U value) {
 }
 ```
 
-##### 静态工厂方法
+#### 静态工厂方法
 
 ```java
 static <U> CompletableFuture<U> supplyAsync(Supplier<U> supplier);
@@ -263,7 +265,7 @@ CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> "hello!")
 assertEquals("hello!", future.get()
 ```
 
-##### 异常处理
+#### 异常处理
 
 你可以通过 `handle()` 方法来处理任务执行过程中可能出现的抛出异常的情况。
 
@@ -470,6 +472,60 @@ future1 done...
 abc
 ```
 
-##### 参考框架
+#### 参考框架
 
 另外，建议G友们可以看看京东的 [asyncTool](https://gitee.com/jd-platform-opensource/asyncTool) 这个并发框架，里面大量使用到了 `CompletableFuture` 。
+
+#### CompletableFuture使用建议
+
+`CompletableFuture` 默认使用`ForkJoinPool.commonPool()` 作为执行器，这个线程池是全局共享的，可能会被其他任务占用，导致性能下降或者饥饿。因此，建议使用自定义的线程池来执行 `CompletableFuture` 的异步任务，可以提高并发度和灵活性。
+
+```java
+private ThreadPoolExecutor executor = new ThreadPoolExecutor(10, 10,
+        0L, TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue<Runnable>());
+
+CompletableFuture.runAsync(() -> {
+   //...
+}, executor);
+```
+
+##### 尽量避免使用 get()
+
+`CompletableFuture`的`get()`方法是阻塞的，尽量避免使用。如果必须要使用的话，需要添加超时时间，否则可能会导致主线程一直等待，无法执行其他任务。
+
+```java
+CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
+    try {
+        Thread.sleep(10000);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+    return "Hello, world!";
+});
+
+    // 获取异步任务的返回值，设置超时时间为 5 秒
+    try {
+        String result = future.get(5, TimeUnit.SECONDS);
+        System.out.println(result);
+    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+        // 处理异常
+        e.printStackTrace();
+    }
+}
+```
+
+上面这段代码在调用 `get()` 时抛出了 `TimeoutException` 异常。这样我们就可以在异常处理中进行相应的操作，比如取消任务、重试任务、记录日志等。
+
+##### 正确进行异常处理
+
+使用 `CompletableFuture`的时候一定要以正确的方式进行异常处理，避免异常丢失或者出现不可控问题。下面是一些建议：
+
+- 使用 `whenComplete` 方法可以在任务完成时触发回调函数，并正确地处理异常，而不是让异常被吞噬或丢失。
+- 使用 `exceptionally` 方法可以处理异常并重新抛出，以便异常能够传播到后续阶段，而不是让异常被忽略或终止。
+- 使用 `handle` 方法可以处理正常的返回结果和异常，并返回一个新的结果，而不是让异常影响正常的业务逻辑。
+- 使用 `CompletableFuture.allOf` 方法可以组合多个 `CompletableFuture`，并统一处理所有任务的异常，而不是让异常处理过于冗长或重复。
+
+##### 合理组合多个异步任务
+
+正确使用 `thenCompose()` 、 `thenCombine()` 、`acceptEither()`、`allOf()`、`anyOf() `等方法来组合多个异步任务，以满足实际业务的需求，提高程序执行效率。
