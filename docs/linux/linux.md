@@ -262,3 +262,39 @@ firewall-cmd --state
 
 `taskkill /T /F /PID 9088`
 
+
+
+### scp 传输文件
+
+[关于scp传输文件踩过的坑](https://zhuanlan.zhihu.com/p/542926236)
+
+##### 首先需要将Windows的ssh功能打开
+
+确保电脑上有ssh才行，windows一般是没有的，需要在设置>应用>可选功能中查找安装openssh服务。
+
+![image-20230921172306960](media/images/image-20230921172306960.png)
+
+##### 查看 scp命令的格式
+
+https://www.runoob.com/linux/linux-comm-scp.html
+
+```sh
+# sc的格式和cp是一致的
+cp /路径/文件 /路径/
+cp -r /路径/文件夹 /路径/
+scp 用户名@192.xx.xx(IP):/路径/文件 /路径/
+scp /路径/文件 用户名@192.xx.xx(IP):/路径/
+scp -r 用户名@192.xx.xx(IP):/路径/文件夹 /路径/
+scp -r /路径/文件夹 用户名@192.xx.xx(IP):/路径/
+
+# 例如:将目录aaa及里面文件 复制到hhh文件夹下
+scp -r /sss/aaa/ yonghu@10.0.0.0:/ggg/hhh/
+scp ./hsicms-0.0.1-SNAPSHOT.jar Vin@192.168.2.117:/D:/projects/work/hsicms-uat/back-jar
+```
+
+唯一不同的是，在向两台机器传输文件过程中，文件或文件夹所在远端的那台机器，在scp里面的远端路径前面要加地址和用户。
+
+##### 两台设备要在同一个局域网下或用vpn才可以使用ssh。
+
+
+
