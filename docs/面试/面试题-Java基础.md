@@ -1,6 +1,39 @@
 ### Java基础
 
+##### 对Java平台的理解
 
+可以从多方面讲解
+
+- **Java语言特性**：泛型、Lambda 等语言特性；基础类库，包括集合、IO/NIO、网络、并发、安全
+  等基础类库。
+
+- **JVM 基础概念和基础**： Java 的类加载机制，常用版本 JDK（如 JDK8）内嵌的 Class-Loader，例如 Bootstrap、 Application 和 Extension Class-loader；类加载大致过程：加载、验证、链接、初始化。自定义 Class-Loader 等。还有垃圾收集的基本原理，最常见的垃圾收集器，如 SerialGC、Parallel GC、 CMS、 G1 等。
+
+- **JDK 包含哪些工具或者 Java 领域内其他工具等**：如编译器（javac）、运行时环境、安全工具、诊断（jmap，jstack，jstat）和监控工具（jconsole）等。
+
+- **编译期**
+
+  > Java的编译是编译成 .class 的字节码文件，而不是可以直接执行的机器码，通过字节码和Java虚拟机实现了“一次编译，到处执行”的基础。
+
+- **运行时**
+
+  > 在运行时，JVM 会通过类加载器（Class-Loader）加载字节码，解释或者编译执行。主流 Java 版本中，如 JDK 8 实际是解释和编译混合的一种模式，即所谓的混合模式（-Xmixed）。通常运行在 server 模式的 JVM，会进行上万次调用以收集足够的信息进行高效的编译，client 模式这个门限是 1500 次。Oracle Hotspot JVM 内置了两个不同的 JIT compiler，C1 对应前面说的 client 模式，适用于对于启动速度敏感的应用，比如普通 Java 桌面应用；C2 对应 server 模式，它的优化是为长时间运行的服务器端应用设计的。默认是采用所谓的分层编译（TieredCompilation）。
+  >
+  > Java 虚拟机启动时，**可以指定不同的参数对运行模式进行选择**。 比如，**指定“-Xint”，就是告诉 JVM 只进行解释执行，不对代码进行编译，这种模式抛弃了 JIT 可能带来的性能优势**。
+  >
+  > “-Xcomp”参数，这是告诉 JVM 关闭解释器，不要进行解释执行，或者叫作最大优化级别。会导致JVM 启动变慢非常多，同时有些 JIT 编译器优化方式，比如分支预测，如果不进行profiling，往往并不能进行有效优化。
+
+##### 谈谈 final、finally、finalize的理解
+
+- final 可以用来修饰类、方法、变量，分别有不同的意义，final 修饰的 class 代表不可以继承扩展，final 的变量是不可以修改的，而 final 的方法也是不可以重写的（override）。final不是不可变 immutable！
+
+  > final class，可以有效避免API 使用者更改基础功能，某种程度上，这是保证平台安全的必要手段。
+  >
+  > 并发中定义只读数据，减少额外同步开销。
+
+- finally 则是 Java 保证重点代码一定要被执行的一种机制。try-finally  或 try-catch-finally。除非在前面执行了 system.exit(1)。
+
+- finalize 是基础类 java.lang.Object 的一个方法，**它的设计目的是保证对象在被垃圾收集前完成特定资源的回收**。finalize 机制现在已经不推荐使用，并且在 JDK 9 开始被标记为deprecated。你无法保证 finalize 什么时候执行，执行的是否符合预期。
 
 ##### Math.round(11.5)等於多少?Math.round(-11.5)等於多少?
 
@@ -228,7 +261,56 @@ java中的内存泄露的情况：**长生命周期的对象持有短生命周�
 
 ##### [【大厂面试真题解析】虾皮 Shopee 后端一面十四问 (qq.com)](https://mp.weixin.qq.com/s/p865pgnPWThNlgNjmnoKwQ)  
 
-##### static关键字，构造器显示调用，static代码块执行顺序，初始化顺序等
+##### static关键字，构造器显示调用，static代码块执行顺序，父子类初始化顺序等
+
+```java
+public class Initializationblock {
+    int intA;
+    int intB;
+	// 构造器
+    public Initializationblock() {
+        System.out.println("无参构造器00000000");
+    }
+
+    public Initializationblock(int a) {
+        System.out.println("一个参数的构造器");
+        
+    }
+	// 代码块
+    {
+        intA = 10;
+        intB = 15;
+        System.out.println("构造初始化块11111");
+    }
+
+    {
+        System.out.println("构造初始化块22222");
+    }
+
+    {
+        System.out.println("构造初始化块33333");
+    }
+
+    //静态初始化块
+    static {
+        System.out.println("静态初始化块01010101");
+    }
+
+    static {
+        System.out.println("静态初始化块0202020202");
+    }
+    
+    public void method(){
+    	{
+    		System.out.println("普通初始化块");
+    	}
+    }
+}
+```
+
+**没继承**：静态代码块 --》 构造代码块 --》 构造函数 --》 普通代码块
+
+**有继承**：父类静态块 --》子类静态块 --》父类代码块 --》父类构造器--》子类代码块-》子类构造器。
 
 ##### switch case的穿透
 
@@ -238,16 +320,69 @@ java中的内存泄露的情况：**长生命周期的对象持有短生命周�
 
 在方法里面修改参数的值，实参的变化
 
-##### 子类父类构造器初始化顺序
-
-##### Class a = new Class();Class b = new Class(); a==b?输出什么。为什么？Class对象考察
-
 ##### 静态代理和动态代理区别
+
+##### Java反射机制，动态代理是基于什么原理？
+
+赋予程序在运行时**自省**（introspect，官方用语）的能力。通过反射我们可以直接操作类或者对象，比如获取某个对象的类定义，获取类声明的属性和方法，调用方法或者构造对象，甚至可以运行时修改类定义。
+
+**动态代理是一种方便运行时动态构建代理、动态处理代理方法调用的机制**，很多场景都是利
+用类似机制做到的，比如用来包装 RPC 调用、面向切面的编程（AOP）。
+
+实现动态代理的方式很多，比如 JDK 自身提供的动态代理，就是**主要利用了上面提到的反**
+**射机制**。还有其他的实现方式，比如利用传说中更高性能的字节码操作机制，类似 ASM、
+cglib（基于 ASM）、Javassist。
+
+**动态代理解决了什么问题？**
+
+通过代理可以让调用者与实现者之间解耦。通过代理实现对目标代码的调用。如RPC调用，框架内部的寻址、序列化、反序列化等。
+
+##### int和integer，integer值缓存范围
+
+Integer 是 int 的包装类。在Java5中引入了自动装箱和自动拆箱的功能，Java可跟据上下文自动进行转换。
+
+> 构建 Integer 对象的**传统方式**是直接调用构造器，直接 new 一个对象。但是根据实践，我们发现大部分数据操作都是集中在有限的、较小的数值范围，因而，在 Java 5 中新增了**静态工厂方法 valueOf，在调用它的时候会利用一个缓存机制，带来了明显的性能改进**。按照 Javadoc，这个值默认缓存是 -128 到 127 之间。
+>
+> ```java
+> public static Integer valueOf(int i) {
+>     if (i >= IntegerCache.low && i <= IntegerCache.high)
+>         return IntegerCache.cache[i + (-IntegerCache.low)];
+>     return new Integer(i);
+> }
+> ```
+
+自动装箱、拆箱实际上算是一种**语法糖**。
+
+javac 替我们自动把**装箱转换为Integer.valueOf()，把拆箱替换为Integer.intValue()**。
+
+```java
+Integer integer = 1; // 装箱
+int unboxing = integer ++;
+// 反编译之后
+0: iconst_1
+1: invokestatic  #2                  // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+8: invokevirtual #3                  // Method java/lang/Integer.intValue:()I
+
+```
+
+Short，同样是缓存了 -128 到 127 之间的数值。
+
+Byte，数值有限，所以全部都被缓存。
+
+Character，缓存范围’\u0000’ 到 ‘\u007F’。
+
+Boolean，缓存了 true/false 对应实例。
+
+
+
+
+
+
+
 
 
 
 ---
-
 #### 集合
 
 ##### hashmap的原理，什么时候重写hashcode()和equals()方法
@@ -309,17 +444,19 @@ private void grow(int minCapacity) {
 
 ##### **error和exception有什么区别?**
 
-Error类和Exception类的父类都是throwable类。区别：
+Error类和Exception类的父类都是**throwable**类。区别：
 
 - Error类一般是指与虚拟机相关的问题，不可预料到的情况，如系统崩溃，虚拟机错误，内存空间不足，方法调用栈溢出等。对于这类错误的导致的应用程序中断，仅靠程序本身无法恢复和预防，遇到这样的错误，建议让程序终止。
 
-- Exception类表示程序可以处理的异常，可以捕获且可能恢复。遇到这类异常，应该尽可能处理异常，使程序恢复运行，而不应该随意终止异常。Exception 又有两个分支 ，一 个 是 运 行 时 异 常 RuntimeException ， 一 个 是 CheckedException。
+  > OutOfMemoryError、NoSuchMethodError、NoSuchFieldError、StackOverflowError、NoClassDefFoundError
 
-- RuntimeException 不需要显示捕获，运行时异常。
+- **Exception类表示程序可以处理的异常，可以捕获且可能恢复**。遇到这类异常，应该尽可能处理异常，使程序恢复运行，而不应该随意终止异常。
 
-- CheckedException需要显示捕获，检查异常。
+Exception 又有两个分支 ，一 个是运行时异常 RuntimeException ， 一个是 CheckedException。
 
-  error和exception子类有哪些？
+- RuntimeException**不需要显示捕获**，**运行时异常**。如 NullPointerException、ArrayIndexOutOfBoundsException、IllegalArgumentException、NumberFormatException
+
+- CheckedException**需要显示捕获**，**检查异常**。如IOException、InterruptedException。
 
 ##### NolassDefFoundError和ClassNotFoundException有什么区别?
 
