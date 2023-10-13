@@ -47,56 +47,17 @@ Overload：重载。表示同一个类中可以有多个名称相同的方法，
 
 Override：重写。表示子类中的方法可以与父类中的某个方法的名称和参数完全相同。子类的方法的**修饰符（访问权限）**比父类的 ***大***，子类方法抛出的 **异常** 要小于父类的方法抛出的异常。
 
-##### 接口和抽象类区别
+##### 接口和抽象类
 
-###### 接口是否可继承接口?
+接口既可以继承接口，也可以实现(implements)接口。
 
-接口可以继承接口
+- 抽象类可以继承具体类。抽象类和普通类的唯一区别 **不能创建实例对象和允许有abstract方法**。
 
-###### 抽象类是否可实现(implements)接口?
+- abstract的method是否可同时是static,是否可同时是native，是否可同时是synchronized?
 
-抽象类可以实现接口
-
-###### 抽象类是否可继承具体类(concreteclass)?抽象类中是否可以有静态的main方法？
-
-抽象类可以继承具体类。抽象类和普通类的唯一区别 **不能创建实例对象和允许有abstract方法**。
-
-###### abstract的method是否可同时是static,是否可同时是native，是否可同时是synchronized?
-
-abstract的method不可以是static的，因为抽象的方法是要被子类实现的，而static与子类无关。
-
-native方法表示该方法要用另外一种依赖平台的编程语言实现的，不存在着被子类实现的问题，所以，它也不能是抽象的，不能与abstract混用。
-
-关于synchronized与abstract合用的问题，我觉得也不行，因为在我几年的学习和开发中，从来没见到过这种情况，并且我觉得synchronized应该是作用在一个具体的方法上才有意义。而且，方法上的synchronized同步所使用的同步锁对象是this，而抽象方法上无法确定this是什么。
-
-##### List,Set, Map是否继承自Collection接口？List、Map、Set三个接口，存取元素时，各有什么特点？
-
-List、Set是继承自Collection，Map不是，它是一个单独的接口。
-
-首先，List与Set具有相似性，它们都是单列元素的集合，所以，它们有一个共同的父接口，叫Collection。Set中不存在有重复的元素，因为HashSet内部维护了一个HashMap，当添加相同对象的时候源代码如下：
-
-```Java
-/**
-     * Adds the specified element to this set if it is not already present.
-     * More formally, adds the specified element <tt>e</tt> to this set if
-     * this set contains no element <tt>e2</tt> such that
-     * <tt>(e==null&nbsp;?&nbsp;e2==null&nbsp;:&nbsp;e.equals(e2))</tt>.
-     * If this set already contains the element, the call leaves the set
-     * unchanged and returns <tt>false</tt>.
-     *
-     * @param e element to be added to this set
-     * @return <tt>true</tt> if this set did not already contain the specified
-     * element
-     */
-// 将指定的元素添加到此集合（如果尚未存在）。 更正式地，将指定的元素e添加到此集合，如果此集合不包含元素e2 ，使得(e==null ? e2==null : e.equals(e2)) 。 如果该集合已经包含该元素，则该呼叫将保持不变，并返回false 。
-public boolean add(E e) {
-    return map.put(e, PRESENT)==null;
-}
-```
-
-Set取元素时，不能细说要取第几个，只能以Iterator接口取得所有的元素，再逐一遍历各个元素。
-
-List表示有先后顺序的集合。List以特定次序来持有元素，可有重复元素。Set无法拥有重复元素,内部排序。Map保存key-value值，value可多值。
+> abstract的method不可以是static的，因为抽象的方法是要被子类实现的，而static与子类无关。native方法表示该方法要用另外一种依赖平台的编程语言实现的，不存在着被子类实现的问题，所以，它也不能是抽象的，不能与abstract混用。
+>
+> 关于synchronized与abstract合用的问题，我觉得也不行，因为在我几年的学习和开发中，从来没见到过这种情况，并且我觉得synchronized应该是作用在一个具体的方法上才有意义。而且，方法上的synchronized同步所使用的同步锁对象是this，而抽象方法上无法确定this是什么。
 
 ##### 下面这条语句一共创建了多少个对象：String s="a"+"b"+"c"+"d";
 
@@ -129,10 +90,10 @@ System.out.println(s == "abcd"); // true
 
 ##### try catch finally 执行顺序
 
-###### try {}里有一个return语句，那么紧跟在这个try后的finally{}里的code会不会被执行，什么时候被执行，在return前还是后?
+**try {} 里有一个return语句，那么紧跟在这个try后的finally{}里的code会不会被执行，什么时候被执行，在return前还是后？**
 
-我们知道finally{}中的语句是一定会执行的，那么这个可能正常脱口而出就是return之前，return之后可能就出了这个方法了，鬼知道跑哪里去了，但**更准确的应该是在return中间执行**，请看下面程序代码的运行结果：
-
+> 我们知道finally{}中的语句是一定会执行的，那么这个可能正常脱口而出就是return之前，return之后可能就出了这个方法了，鬼知道跑哪里去了，但**更准确的应该是在return中间执行**，请看下面程序代码的运行结果：
+>
 > 可以看字节码的相关这篇博客：[Java中try finally 的原理(字节码解释)](https://juejin.cn/post/6844903520475283469)
 >
 > **finally 的代码块编译后都会接到 try 代码块之后**。
@@ -159,7 +120,7 @@ public int test2() {
 
 - 在执行finally语句之前，已将方法内的返回值保存起来，finally语句块对该值进行操作都不会改变该值。
 
-###### try catch finally中return 代码返回位置不一样，返回什么结果
+**try catch finally中return 代码返回位置不一样，返回什么结果**
 
 ```java
 public static String doTryFinally1() {
@@ -188,7 +149,7 @@ public static String doTryFinally2() {
 // doTryFinally2 : zhuang111111
 ```
 
-###### try catch finally 里面自定义异常代码块，catch的应该是哪个。
+**try catch finally 里面自定义异常代码块，catch的应该是哪个**
 
 ```java
 public static String doTryFinally6() {
@@ -207,9 +168,9 @@ public static String doTryFinally6() {
 // 输出：444444
 ```
 
-多级异常：
+**多级异常**：
 
-有三级catch语句进行异常捕捉，捕获到的条件是try语句块抛出的异常是catch语句中的异常或者其子类，捕捉顺序为由上至下（上级catch的异常不能是下一级catch异常的超类（父类，superclass）），若第一级catch未捕获，则由下一级catch验证捕捉，若异常已被捕捉，则之后的catch语句块就不会再捕捉。
+有三级catch语句进行异常捕捉，捕获到的条件是try语句块抛出的异常是catch语句中的异常或者其子类，**捕捉顺序为由上至下**（上级catch的异常不能是下一级catch异常的超类（父类，superclass）），**若第一级catch未捕获，则由下一级catch验证捕捉，若异常已被捕捉，则之后的catch语句块就不会再捕捉**。
 
 第一级捕获异常：这三个异常是 NullPointerException extends RuntimeException，RuntimeException extends Exception 的关系。
 
@@ -314,7 +275,7 @@ public class Initializationblock {
 
 ##### switch case的穿透
 
-##### 标识符、拆箱和包装
+##### 
 
 ##### 形参实参，包装类参数，基本类型参数，方法传递参数（引用类型、基本类型）
 
@@ -337,7 +298,7 @@ cglib（基于 ASM）、Javassist。
 
 通过代理可以让调用者与实现者之间解耦。通过代理实现对目标代码的调用。如RPC调用，框架内部的寻址、序列化、反序列化等。
 
-##### int和integer，integer值缓存范围
+##### int和integer，integer值缓存范围，装箱、拆箱和包装类
 
 Integer 是 int 的包装类。在Java5中引入了自动装箱和自动拆箱的功能，Java可跟据上下文自动进行转换。
 
@@ -365,13 +326,31 @@ int unboxing = integer ++;
 
 ```
 
-Short，同样是缓存了 -128 到 127 之间的数值。
+Short、Byte，同样是缓存了 -128 到 127 之间的数值。Character，缓存范围’\u0000’ 到 ‘\u007F’。Boolean，缓存了 true/false 对应实例。
 
-Byte，数值有限，所以全部都被缓存。
+Integer 的缓存最大值127是可以进行修改的
 
-Character，缓存范围’\u0000’ 到 ‘\u007F’。
+```java
+// high value may be configured by property
+int h = 127;
+String integerCacheHighPropValue =
+    sun.misc.VM.getSavedProperty("java.lang.Integer.IntegerCache.high");
+if (integerCacheHighPropValue != null) {
+    try {
+        int i = parseInt(integerCacheHighPropValue);
+        i = Math.max(i, 127);
+        // Maximum array size is Integer.MAX_VALUE
+        h = Math.min(i, Integer.MAX_VALUE - (-low) -1);
+    } catch( NumberFormatException nfe) {
+        // If the property cannot be parsed into an int, ignore it.
+    }
+}
+high = h;
+```
 
-Boolean，缓存了 true/false 对应实例。
+**原始类型线程安全**
+
+原始数据类型的变量，显然要使用并发相关手段，才能保证线程安全。线程安全需要，推荐使用AtomicInteger、AtomicLong。比较宽的数据类型，比如 float、double，甚至不能保证更新操作的原子性，可能出现程序读取到只更新了一半数据位的数值。
 
 
 
@@ -384,6 +363,8 @@ Boolean，缓存了 true/false 对应实例。
 
 ---
 #### 集合
+
+![image-20231013172532689](media/images/image-20231013172532689.png)
 
 ##### hashmap的原理，什么时候重写hashcode()和equals()方法
 
@@ -436,9 +417,52 @@ private void grow(int minCapacity) {
 }
 ```
 
-##### ArrayList和LinkedList区别
+##### ArrayList、LinkedList、Vector区别
+
+- Vector：Java早期提供的线程安全的动态数组，内部使用对象数组，顺序存储，适合随机访问，扩容增加一倍。
+- ArrayList：线程不安全，动态数组，内部使用对象数组，扩容增加50%，为原来的1.5倍，顺序存储，适合随机访问。
+- LinkedList：线程不安全，双向链表。
 
 
+
+##### List,Set, Map是否继承自Collection接口？List、Map、Set三个接口，存取元素时，各有什么特点？
+
+List、Set是继承自Collection，Map不是，它是一个单独的接口。
+
+首先，List与Set具有相似性，它们都是单列元素的集合，所以，它们有一个共同的父接口，叫Collection。Set中不存在有重复的元素，因为HashSet内部维护了一个HashMap，当添加相同对象的时候源代码如下：
+
+```Java
+/**
+     * Adds the specified element to this set if it is not already present.
+     * More formally, adds the specified element <tt>e</tt> to this set if
+     * this set contains no element <tt>e2</tt> such that
+     * <tt>(e==null&nbsp;?&nbsp;e2==null&nbsp;:&nbsp;e.equals(e2))</tt>.
+     * If this set already contains the element, the call leaves the set
+     * unchanged and returns <tt>false</tt>.
+     *
+     * @param e element to be added to this set
+     * @return <tt>true</tt> if this set did not already contain the specified
+     * element
+     */
+// 将指定的元素添加到此集合（如果尚未存在）。 更正式地，将指定的元素e添加到此集合，如果此集合不包含元素e2 ，使得(e==null ? e2==null : e.equals(e2)) 。 如果该集合已经包含该元素，则该呼叫将保持不变，并返回false 。
+public boolean add(E e) {
+    return map.put(e, PRESENT)==null;
+}
+```
+
+Set取元素时，不能细说要取第几个，只能以Iterator接口取得所有的元素，再逐一遍历各个元素。
+
+List表示有先后顺序的集合。List以特定次序来持有元素，可有重复元素。Set无法拥有重复元素,内部排序。Map保存key-value值，value可多值。
+
+**Set**
+
+TreeSet 支持自然顺序访问，但是添加、删除、包含等操作要相对低效（log(n) 时间）。
+
+HashSet 则是利用哈希算法，理想情况下，如果哈希散列正常，可以提供常数时间的添加、删除、包含等操作，但是它不保证有序。
+
+LinkedHashSet，**内部构建了一个记录插入顺序的双向链表**，因此提供了按照插入顺序遍历的能力，与此同时，也保证了常数时间的添加、删除、包含等操作，这些操作性能略低于 HashSet，因为需要维护链表的开销。
+
+在遍历元素时，HashSet 性能受自身容量影响，所以初始化时，除非有必要，不然不要将其背后的 HashMap 容量设置过大。而对于 LinkedHashSet，由于其内部链表提供的方便，遍历性能只和元素多少有关系。
 
 #### 异常
 
