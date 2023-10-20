@@ -423,7 +423,15 @@ private void grow(int minCapacity) {
 - ArrayList：线程不安全，动态数组，内部使用对象数组，扩容增加50%，为原来的1.5倍，顺序存储，适合随机访问。
 - LinkedList：线程不安全，双向链表。
 
+##### Hashtable、HashMap、TreeMap、LinkedHashMap 有什么不同？
 
+Hashtable 是早期 Java 类库提供的一个哈希表实现，本身是同步的，**不支持 null 键和值**。
+
+HashMap 不是同步的，**支持 null 键和值**等。
+
+TreeMap 则是基于红黑树的一种提供顺序访问的 Map，和 HashMap 不同，它的 get、put、remove 之类操作都是 O（log(n)）的时间复杂度，具体顺序可以由指定的Comparator 来决定，或者根据键的自然顺序来判断。
+
+LinkedHashMap **通常提供的是遍历顺序符合插入顺序**，它的实现是通过为条目（键值对）维护一个双向链表。
 
 ##### List,Set, Map是否继承自Collection接口？List、Map、Set三个接口，存取元素时，各有什么特点？
 
@@ -557,7 +565,7 @@ JVM 自己定义了信号处理函数，这样当发送 kill pid 命令（默认
 
 ##### hashmap 多线程下循环问题
 
-JDK1.8之前出现死循环的原因：可参考 [多线程下HashMap的死循环(1.7版本)](https://blog.csdn.net/dingjianmin/article/details/79780350)   [HashMap死循环](https://juejin.cn/post/6911999881150365703)
+JDK1.8之前出现死循环的原因：可参考 [多线程下HashMap的死循环(1.7版本)](https://blog.csdn.net/dingjianmin/article/details/79780350)   [HashMap死循环](https://juejin.cn/post/6911999881150365703) [疫苗：Java HashMap的死循环 | 酷 壳 - CoolShell](https://coolshell.cn/articles/9606.html)
 
 HashMap在[多线程](https://so.csdn.net/so/search?q=多线程&spm=1001.2101.3001.7020)环境下，同时进行**put**操作，并且同时进行**扩容**时，会出现**链表环**，导致死循环。因为jdk1.8之前采用的是**头插法**，新加入的冲突元素将会插到原有链表的头部。**扩容之后，链表上的元素顺序会反过来。这也是造成死循环的原因之一**
 
@@ -641,6 +649,10 @@ static <K,V> TreeNode<K,V> balanceInsertion(TreeNode<K,V> root,
 
 ##### 线程的run()方法和没有使用start()方法的差别。
 
+##### 一个线程调用两次start()方法会出现什么情况
+
+第二次调用必然会抛出IllegalThreadStateException，运行时异常，多次调用被认为是编程错误。
+
 ##### 线程池如何分配线程数，核心参数如何配置？
 
 - cpu密集型
@@ -664,8 +676,68 @@ workQueue，工作队列（根据内存情况设置具体的一个大小，任�
 
 可以通过一个图形化页面做一个展示。有一些开源项目可以对线程池进行监控，比如，hippo4j，还可以和spring boot进行整合。
 
+##### synchronized 底层如何实现？什么是锁的升级、降级？
+
+synchronized 代码块是由一对monitorenter/monitorexit 指令实现的，Monitor 对象是同步的基本实现单元。
+
+锁的升级、降级，就是 JVM 优化 synchronized 运行的机制，当 JVM 检测到不同的竞争状况时，会自动切换到适合的锁实现，这种切换就是锁的升级、降级。
+
+##### 如何定位并修复死锁
+
+**定位死锁最常见的方式就是利用 jstack 等工具获取线程栈，然后定位互相之间的依赖关系，进而找到死锁**。如果是比较明显的死锁，往往 jstack 等就能直接定位，类似 JConsole甚至可以在图形界面进行有限的死锁检测。如果程序运行时发生了死锁，绝大多数情况下都是无法在线解决的，只能重启、修正程序本身问题。所以，代码开发阶段互相审查，或者利用工具进行预防性排查，往往也是很重要的。
+
+##### Java并发包提供的工具类
+
+CountDownLatch、CyclicBarrier、Semaphore 等。强大的 Executor 框架，可以创建各种不同类型的线程池，调度任务运行等。
+
+各种线程安全的容器，比如最常见的 ConcurrentHashMap、有序的ConcunrrentSkipListMap，或者通过类似快照机制，实现线程安全的动态数组CopyOnWriteArrayList 、CopyOnWriteArraySet等。
+
+各种并发队列实现，如各种 BlockedQueue 实现，比较典型的 ArrayBlockingQueue、SynchorousQueue 或针对特定场景的 PriorityBlockingQueue 等。
+
+##### 并发包中的 ConcurrentLinkedQueue 和 LinkedBlockingQueue有什么区别？
+
+Concurrent 类型基于 lock-free，在常见的多线程访问场景，一般可以提供较高吞吐量。
+
+而 LinkedBlockingQueue 内部则是基于锁，并提供了 BlockingQueue 的等待性方法。
+
+##### 除了Unsafe，还可以怎样实现CAS
+
+- 使用 java.util.concurrent.atomic.AtomicLongFieldUpdater，它是基于反射机制创建，我们需
+  要保证类型和字段名称正确。
+
+```java
+private static final AtomicLongFieldUpdater<AtomicBTreePartition> lockFieldUpdater =
+        AtomicLongFieldUpdater.newUpdater(AtomicBTreePartition.class, "lock");
+ 
+private void acquireLock(){
+    long t = Thread.currentThread().getId();
+    while (!lockFieldUpdater.compareAndSet(this, 0L, t)){
+        // 等待一会儿，数据库操作可能比较慢
+         …
+    }
+}
+```
+
+- Java9以后，使用 Variable Handle API 这是源自于JEP 193，提供了各种粒度的原子或者有序性的操作等
+
+```java
+private static final VarHandle HANDLE = MethodHandles.lookup().findStaticVarHandle
+        (AtomicBTreePartition.class, "lock");
+ 
+private void acquireLock(){
+    long t = Thread.currentThread().getId();
+    while (!HANDLE.compareAndSet(this, 0L, t)){
+        // 等待一会儿，数据库操作可能比较慢
+        …
+    }
+}
+```
+
+
+
 #### 使用线程池注意事项
 
 ##### 线程池为什么需要执行shutdown或者shutdownnow方法？
 
 （20-30k）
+
