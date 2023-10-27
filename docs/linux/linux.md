@@ -298,3 +298,7 @@ scp ./hsicms-0.0.1-SNAPSHOT.jar Vin@192.168.2.117:/D:/projects/work/hsicms-uat/b
 
 
 
+#### 问题排查工具命令图
+
+![image-20231024172749109](media/images/image-20231024172749109.png)
+
