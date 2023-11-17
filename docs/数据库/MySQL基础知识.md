@@ -2992,7 +2992,7 @@ DELIMITER：
 * 标准语法 2
 
   ```mysql
-  sCASE
+  CASE
       WHEN 判断条件1 THEN 执行sql语句1;
       [WHEN 判断条件2 THEN 执行sql语句2;]
       ...
