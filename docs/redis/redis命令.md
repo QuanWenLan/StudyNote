@@ -232,3 +232,84 @@ docker run \
 - 如果要设置requirepass密码（我设置成了654321）
 - 想外部访问首先将“bind”一行注释。 `bind 127.0.0.1 -::1`
 - 最后启动时使用 -p 7963:7963
+
+### redis 哨兵命令
+
+https://www.cnblogs.com/janehoo/p/6122958.html
+
+#### 基本命令
+
+##### 1 获取sentinel的状态
+
+- info
+  查看sentinel的状态
+- sentinel masters
+  获取sentinel中监控的所有master的节点
+- sentinel master <master-name>
+  获取master-name节点redis的状态信息
+- sentinel slaves <master-name>
+  获取master-name节点下所有的slaves的状态信息。
+- SENTINEL get-master-addr-by-name
+  通过sentinel中的节点名获取其ip地址
+
+##### 2 添加或删除监控节点
+
+- sentinel monitor <name> <ip> <port> <qrirum>
+
+  > name: sentinel中节点的名字
+  > port ip : 被监控的redis master实例
+  > quorum : failover时，需要的法定人数。 
+
+- sentinel reset
+
+  重置redis name匹配制定的状态，包括正在failover的master。
+  该操作会删除该节点上的slave信息、已经发现和关联的sentinel节点信息。
+  sentinel将会重新发现sentinel和redis slave节点。
+
+- sentinel remove <master-name>
+
+  删除master节点，sentinel不再监控该节点。
+
+- manual failover
+
+##### 3 sentinel failover <master-name>
+
+强制redis mater进行failover操作。
+
+#### 主观下线（Subjectively Down）和 客观下线（Objectively Down）
+
+SDOWM: Objectively Down, 单个sentinel节点在down-after-milliseconds时间内没有收到redis masterping的有效回复，这个redis master进入SDOWN主观下线状态。
+
+ODOWN: Objectively Down, 接收多个（>=quorum) sentinel节点的SDOWN的确认，这个redis master进入O_DOWN客观下线状态。O_DOWN将会触发sentinel leader执行fail-over。
+
+#### sentinel fail-over参数
+
+- down-after-milliseconds
+  sentinel在down-after-milliseconds时间内没有收到ping的有效回复，那么认为objectively down。
+  sentinel set test01 down-after-milliseconds 30000 # 判断节点subjective down的时间，将触发fail-over。
+
+- failover-timeout
+  sentinel set test01 failover-timeout 60000 # 重新对该master执行failover的时间间隔
+
+If a Sentinel voted another Sentinel for the failover of a given master, it will wait some time to try to failover the same master again.This delay is the failover-timeout you can configure in sentinel.conf. This means that Sentinels will not try to failover the same master at the same time, the first to ask to be authorized will try, if it fails another will try after some time, and so forth.
+
+#### 4 sentinel状态监测
+
+- redis的监测
+  sentinel会每隔1s向redis master/slave发送一个ping命令。
+
+- 和其他sentinel的发现
+  redis通过每隔2s进行PUB/SUB redis master/slave中__sentinel:hello channel中的数据，来发现新的sentinel节点和slaves节点。
+
+- redis slaves更新
+  A Sentinel sends INFO commands to the masters and slaves every ten seconds in order to take a fresh list of connected slaves, the state of the master, and so forth.
+
+#### 5 sentinel quorum
+
+可以通过sentinel monitor命令、sentinel set、或者在启动sentinel的时候在配置文件中设置某个master的进行failover的投票的法定人数。
+
+实际上，也就是确认objectively down的法定人数，如果超有大于等于quorum个sentinel确认某个redis master出现SDOWN，那么redis maser进入ODOWN的状态。
+
+在这之后，sentinel leader将会执行failover过程。
+
+法定人数合理的设置：不能小于sentinel总节点数（N）的一半。即，floor(n/2) + 1 <= quorum <= N

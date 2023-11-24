@@ -1009,7 +1009,7 @@ List<String> dishNames = menu.stream()
 
 ###### 5.2.2 流的扁平化 flatMap
 
-对于一张单词表，如何返回一张列表，列出里面 各不相同的字符 呢？例如，给定单词列表 ["Hello","World"]，你想要返回列表["H","e","l", "o","W","r","d"]。
+对于一张单词表，如何返回一张列表，列出里面各不相同的字符 呢？例如，给定单词列表 ["Hello","World"]，你想要返回列表["H","e","l", "o","W","r","d"]。
 
 你可以把每个单词映射成一张字符表，然后调用distinct来过滤重复的字符。第一个版本可能是这样的：
 
@@ -1151,7 +1151,7 @@ Optional<Dish> dish = menu.stream().filter(Dish::isVegetarian).findAny();
  .ifPresent(d -> System.out.println(d.getName());// 如果包含一个值就打印它，否则什么都不做
 ```
 
-###### 5.3.4 查找第一个元素
+###### 5.3.4 查找第一个元素 findFirst
 
 有些流有一个出现顺序（encounter order）来指定流中项目出现的逻辑顺序（比如由List或排序好的数据列生成的流）。对于这种流，你可能想要找到第一个元素。为此有一个findFirst方法，它的工作方式类似于findany。
 
@@ -1163,4 +1163,791 @@ Optional<Integer> firstSquareDivisibleByThree =
  .filter(x -> x % 3 == 0) 
  .findFirst(); // 9
 ```
+
+##### 5.4 规约（将流规约成一个值）
+
+###### 5.4.1 元素求和
+
+之前的for-each求和
+
+```java
+int sum = 0; 
+for (int x : numbers) { 
+ sum += x; 
+}
+```
+
+现在可以使用 reduce 操作了。
+
+```java
+List<Integer> numbers = Arrays.asList(3,4,5,1,2);
+int sum = numbers.stream().reduce(0, (a, b) -> a + b);
+System.out.println(sum);
+```
+
+reduce接受两个参数：
+
+一个初始值，这里是0；一个BinaryOperator<T>来将两个元素结合起来产生一个新值，这里我们用的是
+
+```java
+lambda (a, b) -> a + b。
+```
+
+你也很容易把所有的元素相乘，只需要将另一个Lambda：(a, b) -> a * b传递给reduce操作就可以了：
+
+`int product = numbers.stream().reduce(1, (a, b) -> a * b); `
+
+图5-7展示了reduce操作是如何作用于一个流的：Lambda反复结合每个元素，直到流被归约成一个值。让我们深入研究一下reduce操作是如何对一个数字流求和的。首先，0作为Lambda（a）的第一个参数，从流中获得4作为第二个参数（b）。0 + 4得到4，它成了新的累积值。然后再用累积值和流中下一个元素5调用Lambda，产生新的累积值9。接下来，再用累积值和下一个元素3调用Lambda，得到12。最后，用12和流中最后一个元素9调用Lambda，得到最终结果21。
+
+![image-20231123113021364](media/images/image-20231123113021364.png)
+
+最后可以进行一个简化操作：
+
+```java
+int sum2 = numbers.stream().reduce(0, Integer::sum);
+System.out.println(sum2);
+```
+
+**无初始值**
+
+reduce还有一个重载的变体，它不接受初始值，但是会返回一个Optional对象：
+
+`Optional<Integer> sum = numbers.stream().reduce((a, b) -> (a + b)); `
+
+为什么它返回一个Optional<Integer>呢？考虑流中没有任何元素的情况。reduce操作无法返回其和，因为它没有初始值。这就是为什么结果被包裹在一个Optional对象里，以表明和可能不存在。
+
+###### 5.4.2 最大值和最小值
+
+```java
+int max = numbers.stream().reduce(0, (a, b) -> Integer.max(a, b));
+System.out.println(max);
+
+Optional<Integer> min = numbers.stream().reduce(Integer::min);
+min.ifPresent(System.out::println);
+```
+
+这是执行流图。也可以写成Lambda (x, y) -> x < y ? x : y 而不是Integer::min，不过后者比较易读。
+
+![image-20231123113724186](media/images/image-20231123113724186.png)
+
+上面所遇到的一些操作：
+
+![image-20231123114021923](media/images/image-20231123114021923.png)
+
+##### 5.5 实战
+
+(1) 找出2011年发生的所有交易，并按交易额排序（从低到高）。
+
+(2) 交易员都在哪些不同的城市工作过？
+
+(3) 查找所有来自于剑桥的交易员，并按姓名排序。
+
+(4) 返回所有交易员的姓名字符串，按字母顺序排序。
+
+(5) 有没有交易员是在米兰工作的？
+
+(6) 打印生活在剑桥的交易员的所有交易额。
+
+(7) 所有交易中，最高的交易额是多少？
+
+(8) 找到交易额最小的交易。
+
+```java
+public class Trader {
+    private String name;
+    private String city;
+}
+public class Transaction {
+    private Trader trader;
+    private int year;
+    private int value;
+}
+import java.util.Arrays;
+import java.util.List;
+
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.toList;
+public class PuttingIntoPractice {
+    public static void main(String[] args) {
+        Trader raoul = new Trader("Raoul", "Cambridge");
+        Trader mario = new Trader("Mario", "Milan");
+        Trader alan = new Trader("Alan", "Cambridge");
+        Trader brian = new Trader("Brian", "Cambridge");
+
+        List<Transaction> transactions = Arrays.asList(
+                new Transaction(brian, 2011, 300),
+                new Transaction(raoul, 2012, 1000),
+                new Transaction(raoul, 2011, 400),
+                new Transaction(mario, 2012, 710),
+                new Transaction(mario, 2012, 700),
+                new Transaction(alan, 2012, 950)
+        );
+
+        // Query 1: Find all transactions from year 2011 and sort them by value (small to high).
+        List<Transaction> tr2011 = transactions.stream()
+                .filter(transaction -> transaction.getYear() == 2011)
+                .sorted(comparing(Transaction::getValue))
+                .collect(toList());
+        System.out.println(tr2011);
+
+        // Query 2: What are all the unique cities where the traders work?
+        List<String> cities =
+                transactions.stream()
+                        .map(transaction -> transaction.getTrader().getCity())
+                        .distinct()
+                        .collect(toList());
+        System.out.println(cities);
+
+        // Query 3: Find all traders from Cambridge and sort them by name.
+
+        List<Trader> traders =
+                transactions.stream()
+                        .map(Transaction::getTrader)
+                        .filter(trader -> trader.getCity().equals("Cambridge"))
+                        .distinct()
+                        .sorted(comparing(Trader::getName))
+                        .collect(toList());
+        System.out.println(traders);
+
+
+        // Query 4: Return a string of all traders’ names sorted alphabetically.
+
+        String traderStr =
+                transactions.stream()
+                        .map(transaction -> transaction.getTrader().getName())
+                        .distinct()
+                        .sorted()
+                        .reduce("", (n1, n2) -> n1 + n2);
+        System.out.println(traderStr);
+
+        // Query 5: Are there any trader based in Milan?
+
+        boolean milanBased =
+                transactions.stream()
+                        .anyMatch(transaction -> transaction.getTrader()
+                                .getCity()
+                                .equals("Milan")
+                        );
+        System.out.println(milanBased);
+
+
+        // Query 6: Update all transactions so that the traders from Milan are set to Cambridge.
+        transactions.stream()
+                .map(Transaction::getTrader)
+                .filter(trader -> trader.getCity().equals("Milan"))
+                .forEach(trader -> trader.setCity("Cambridge"));
+        System.out.println(transactions);
+
+
+        // Query 7: What's the highest value in all the transactions?
+        int highestValue =
+                transactions.stream()
+                        .map(Transaction::getValue)
+                        .reduce(0, Integer::max);
+        System.out.println(highestValue);
+    }
+}
+```
+
+##### 5.6 数值流
+
+###### 5.6.1 原始类型流特化
+
+```java
+int calories = menu.stream() 
+ .map(Dish::getCalories) 
+ .reduce(0, Integer::sum);
+```
+
+这段代码的问题是，它有一个暗含的装箱成本。每个Integer都必须拆箱成一个原始类型，再进行求和。
+
+Java 8引入了三个原始类型特化流接口来解决这个问题：IntStream、DoubleStream和LongStream，分别将流中的元素特化为int、long和double，从而避免了暗含的装箱成本。
+
+**映射到数值流**
+
+```java
+int calories = menu.stream() 
+ .mapToInt(Dish::getCalories) 
+ .sum();
+```
+
+**转换回数值流**
+
+```java
+// 将Stream转换为数值流
+IntStream intStream = menu.stream().mapToInt(Dish::getCalories); 
+// 将数值流转换为Stream
+Stream<Integer> stream = intStream.boxed();
+```
+
+默认值**OptionalInt**
+
+求和的那个例子很容易，因为它有一个默认值：0。但是，如果你要计算IntStream中的最大元素，就得换个法子了，因为0是错误的结果。如何区分没有元素的流和最大值真的是0的流呢？前面我们介绍了Optional类，这是一个可以表示值存在或不存在的容器。Optional可以用Integer、String等参考类型来参数化。对于三种原始流特化，也分别有一个Optional原始类型特化版本：OptionalInt、OptionalDouble和OptionalLong。
+
+例如，要找到IntStream中的最大元素，可以调用max方法，它会返回一个OptionalInt：
+
+```java
+OptionalInt maxCalories = menu.stream() 
+ .mapToInt(Dish::getCalories) 
+ .max();
+```
+
+现在，如果没有最大值的话，你就可以显式处理OptionalInt去定义一个默认值了：
+
+`int max = maxCalories.orElse(1); `
+
+###### 5.6.2 数值范围
+
+比如，假设你想要生成1和100之间的所有数字。Java 8引入了两个可以用于IntStream和LongStream的静态方法，帮助生成这种范围：
+
+range和rangeClosed。这两个方法都是第一个参数接受起始值，第二个参数接受结束值。但range是不包含结束值的，而rangeClosed则包含结束值。让我们来看一个例子：
+
+```java
+IntStream evenNumbers = IntStream.rangeClosed(1, 100)
+        .filter(n -> n % 2 == 0);
+System.out.println(evenNumbers.count()); // 50
+IntStream evenNumbers2 = IntStream.range(1, 100)
+        .filter(n -> n % 2 == 0);
+System.out.println(evenNumbers2.count()); // 49
+```
+
+###### 5.6.2 数值流应用
+
+**勾股数**
+
+```java
+ Stream<int[]> pythagoreanTriples = IntStream.rangeClosed(1, 100).boxed()
+     .flatMap(a ->
+              IntStream.rangeClosed(a, 100)
+              .filter(b -> Math.sqrt(a * a + b * b) % 1 == 0)
+              .mapToObj(b ->
+                        new int[]{a, b, (int) Math.sqrt(a * a + b * b)})
+             );
+```
+
+首先，创建一个从1到100的数值范围来生成a的值。对每个给定的a值，创建一个三元数流。要是把a的值映射到三元数流的话，就会得到一个由流构成的流。flatMap方法在做映射的同时，还会把所有生成的三元数流扁平化成一个流。这样你就得到了一个三元数流。还要注意，我们把b的范围改成了a到100。没有必要再从1开始了，否则就会造成重复的三元数，例如(3,4,5)和(4,3,5)。
+
+运行代码：
+
+```java
+ pythagoreanTriples.limit(5)
+                .forEach(t -> System.out.println(t[0] + ", " + t[1] + ", " + t[2]));
+```
+
+目前的解决办法并不是最优的，因为你要求两次平方根。让代码更为紧凑的一种可能的方法是，先生成所有的三元数(a a, b b, a a+b b)，然后再筛选符合条件的：
+
+```java
+Stream<double[]> pythagoreanTriples2 = IntStream.rangeClosed(1, 100).boxed()
+    .flatMap(a ->
+             IntStream.rangeClosed(a, 100)
+             .mapToObj(
+                 b -> new double[]{a, b, Math.sqrt(a * a + b * b)})
+             .filter(t -> t[2] % 1 == 0));
+pythagoreanTriples2.limit(5)
+    .forEach(t -> System.out.println(t[0] + ", " + t[1] + ", " + t[2]));
+```
+
+##### 5.7 创建流
+
+```java
+import java.util.*;
+import java.util.function.IntSupplier;
+import java.util.stream.*;
+import java.nio.charset.Charset;
+import java.nio.file.*;
+
+public class BuildingStreams {
+
+    public static void main(String...args) throws Exception{
+        
+        // Stream.of
+        Stream<String> stream = Stream.of("Java 8", "Lambdas", "In", "Action");
+        stream.map(String::toUpperCase).forEach(System.out::println);
+
+        // Stream.empty
+        Stream<String> emptyStream = Stream.empty();
+
+        // Arrays.stream
+        int[] numbers = {2, 3, 5, 7, 11, 13};
+        System.out.println(Arrays.stream(numbers).sum());
+
+        // Stream.iterate
+        Stream.iterate(0, n -> n + 2)
+              .limit(10)
+              .forEach(System.out::println);
+
+        // fibonnaci with iterate
+        Stream.iterate(new int[]{0, 1}, t -> new int[]{t[1],t[0] + t[1]})
+              .limit(10)
+              .forEach(t -> System.out.println("(" + t[0] + ", " + t[1] + ")"));
+        
+        Stream.iterate(new int[]{0, 1}, t -> new int[]{t[1],t[0] + t[1]})
+              .limit(10)
+              . map(t -> t[0])  
+              .forEach(System.out::println);
+
+        // random stream of doubles with Stream.generate
+        Stream.generate(Math::random)
+              .limit(10)
+              .forEach(System.out::println);
+ 
+        // stream of 1s with Stream.generate
+        IntStream.generate(() -> 1)
+                 .limit(5)
+                 .forEach(System.out::println);
+
+        IntStream.generate(new IntSupplier(){
+            public int getAsInt(){
+                return 2;
+            }
+        }).limit(5)
+          .forEach(System.out::println);
+   
+
+        IntSupplier fib = new IntSupplier(){
+                  private int previous = 0;
+                  private int current = 1;
+                  public int getAsInt(){
+                      int nextValue = this.previous + this.current;
+                      this.previous = this.current;
+                      this.current = nextValue;
+                      return this.previous;
+                  }
+              };
+         IntStream.generate(fib).limit(10).forEach(System.out::println);
+
+         long uniqueWords = Files.lines(Paths.get("lambdasinaction/chap5/data.txt"), Charset.defaultCharset())
+                                 .flatMap(line -> Arrays.stream(line.split(" ")))
+                                 .distinct()
+                                 .count();
+
+         System.out.println("There are " + uniqueWords + " unique words in data.txt");
+
+
+    }
+}
+```
+
+#### 6 收集器
+
+##### 6.1 收集器简介
+
+###### 6.1.1 收集器用作高级归约
+
+```java
+Map<Currency, List<Transaction>> transactionsByCurrencies = new HashMap<>();
+for (Transaction transaction : transactions) {
+    Currency currency = transaction.getCurrency();
+    List<Transaction> transactionsForCurrency = transactionsByCurrencies.get(currency);
+    if (transactionsForCurrency == null) {
+        transactionsForCurrency = new ArrayList<>();
+        transactionsByCurrencies.put(currency, transactionsForCurrency);
+    }
+    transactionsForCurrency.add(transaction);
+}
+
+System.out.println(transactionsByCurrencies);
+```
+
+换一种写法
+
+```java
+Map<Currency, List<Transaction>> transactionsByCurrencies = transactions.stream().collect(groupingBy(Transaction::getCurrency));
+System.out.println(transactionsByCurrencies);
+```
+
+收集器非常有用，因为用它可以简洁而灵活地定义collect用来生成结果集合的标准。更具体地说，对流调用collect方法将对流中的元素触发一个归约操作（由Collector来参数化）图6-1所示的归约操作所做的工作和代码清单6-1中的指令式代码一样。它遍历流中的每个元素，并让Collector进行处理。
+
+![image-20231123170107141](media/images/image-20231123170107141.png)
+
+一般来说，Collector会对元素应用一个转换函数（很多时候是不体现任何效果的恒等转换，例如toList），并将结果累积在一个数据结构中，从而产生这一过程的最终输出。例如，在前面所示的交易分组的例子中，转换函数提取了每笔交易的货币，随后使用货币作为键，将交易本身累积在生成的Map中。
+
+menu数据：
+
+```java
+public static final List<Dish> menu =
+        asList(new Dish("pork", false, 800, Dish.Type.MEAT),
+                new Dish("beef", false, 700, Dish.Type.MEAT),
+                new Dish("chicken", false, 400, Dish.Type.MEAT),
+                new Dish("french fries", true, 530, Dish.Type.OTHER),
+                new Dish("rice", true, 350, Dish.Type.OTHER),
+                new Dish("season fruit", true, 120, Dish.Type.OTHER),
+                new Dish("pizza", true, 550, Dish.Type.OTHER),
+                new Dish("prawns", false, 400, Dish.Type.FISH),
+                new Dish("salmon", false, 450, Dish.Type.FISH));
+public static final Map<String, List<String>> dishTags = new HashMap<>();
+
+    static {
+        dishTags.put("pork", asList("greasy", "salty"));
+        dishTags.put("beef", asList("salty", "roasted"));
+        dishTags.put("chicken", asList("fried", "crisp"));
+        dishTags.put("french fries", asList("greasy", "fried"));
+        dishTags.put("rice", asList("light", "natural"));
+        dishTags.put("season fruit", asList("fresh", "natural"));
+        dishTags.put("pizza", asList("tasty", "salty"));
+        dishTags.put("prawns", asList("tasty", "roasted"));
+        dishTags.put("salmon", asList("delicious", "fresh"));
+    }
+```
+
+###### 6.1.2 预定义收集器
+
+##### 6.2 归纳和汇总
+
+在本章后面的部分，我们假定你已导入了Collectors类的所有静态工厂方法：
+
+`import static java.util.stream.Collectors.*; `
+
+这样你就可以写counting()而用不着写Collectors.counting()之类的了。
+
+###### 6.2.1 查找流中的最大值和最小值
+
+假设你想要找出菜单中热量最高的菜。你可以使用两个收集器，Collectors.maxBy和Collectors.minBy，来计算流中的最大或最小值。这两个收集器接收一个Comparator参数来比较流中的元素。你可以创建一个Comparator来根据所含热量对菜肴进行比较，并把它传递给Collectors.maxBy：
+
+```java
+Comparator<Dish> dishCaloriesComparator = Comparator.comparingInt(Dish::getCalories); 
+Optional<Dish> mostCalorieDish = menu.stream() .collect(maxBy(dishCaloriesComparator));
+```
+
+###### 6.2.2 汇总
+
+Collectors类专门为汇总提供了一个工厂方法：Collectors.summingInt。它可接受一个把对象映射为求和所需int的函数，并返回一个收集器；该收集器在传递给普通的collect方法后即执行我们需要的汇总操作。举个例子来说，你可以这样求出菜单列表的总热量：
+
+```java
+int totalCalories = menu.stream().collect(summingInt(Dish::getCalories));
+```
+
+这里的收集过程如图6-2所示。在遍历流时，会把每一道菜都映射为其热量，然后把这个数字累加到一个累加器（这里的初始值0）。
+
+Collectors.summingLong和Collectors.summingDouble方法的作用完全一样，可以用于求和字段为long或double的情况。
+
+![image-20231123172300089](media/images/image-20231123172300089.png)
+
+但汇总不仅仅是求和；还有Collectors.averagingInt，连同对应的averagingLong和averagingDouble可以计算数值的平均数：
+
+```java
+double avgCalories = 
+menu.stream().collect(averagingInt(Dish::getCalories));
+```
+
+你可以使用summarizingInt工厂
+
+方法返回的收集器。例如，通过一次summarizing操作你可以就数出菜单中元素的个数，并得到菜肴热量总和、平均值、最大值和最小值：
+
+```java
+IntSummaryStatistics menuStatistics = 
+menu.stream().collect(summarizingInt(Dish::getCalories));
+```
+
+这个收集器会把所有这些信息收集到一个叫作IntSummaryStatistics的类里，它提供了方便的取值（getter）方法来访问结果。打印menuStatisticobject会得到以下输出：
+
+```java
+IntSummaryStatistics{count=9, sum=4300, min=120, average=477.777778, max=800}
+```
+
+同样，相应的summarizingLong和summarizingDouble工厂方法有相关的LongSummaryStatistics和DoubleSummaryStatistics类型，适用于收集的属性是原始类型long或double的情况。
+
+###### 6.2.3 连接字符串
+
+joining工厂方法返回的收集器会把对流中每一个对象应用toString方法得到的所有字符串连接成一个字符串。这意味着你把菜单中所有菜肴的名称连接起来，如下所示：
+
+```java
+String shortMenu = menu.stream().map(Dish::getName).collect(joining());
+```
+
+请注意，joining在内部使用了StringBuilder来把生成的字符串逐个追加起来。此外还要注意，如果Dish类有一个toString方法来返回菜肴的名称，那你无需用提取每一道菜名称的函数来对原流做映射就能够得到相同的结果：
+
+```java
+String shortMenu = menu.stream().collect(joining());
+```
+
+二者均可产生以下字符串：
+
+```java
+porkbeefchickenfrench friesriceseason fruitpizzaprawnssalmon 
+```
+
+joining工厂方法有一个重载版本可以接受元素之间的分界符，这样你就可以得到一个逗号分隔的菜肴名称列表：
+
+```java
+String shortMenu = menu.stream().map(Dish::getName).collect(joining(", "));
+// pork, beef, chicken, french fries, rice, season fruit, pizza, prawns, salmon
+```
+
+###### 6.2.4 广义的归纳汇总
+
+事实上，我们已经讨论的所有收集器，都是一个可以用reducing工厂方法定义的归约过程的特殊情况而已。Collectors.reducing工厂方法是所有这些特殊情况的一般化。
+
+例如，可以用reducing方法创建的收集器来计算你菜单的总热量，如下所示：
+
+```java
+int totalCalories = menu.stream().collect(reducing(0, Dish::getCalories, (i, j) -> i + j));
+```
+
+- 第一个参数是归约操作的起始值，也是流中没有元素时的返回值，所以很显然对于数值和而言0是一个合适的值。
+
+- 第二个参数就是你在6.2.2节中使用的函数，将菜肴转换成一个表示其所含热量的int。
+
+- 第三个参数是一个BinaryOperator，将两个项目累积成一个同类型的值。这里它就是对两个int求和。
+
+同样，你可以使用下面这样单参数形式的reducing来找到热量最高的菜，如下所示
+
+```java
+Optional<Dish> mostCalorieDish = 
+ menu.stream().collect(reducing( 
+ (d1, d2) -> d1.getCalories() > d2.getCalories() ? d1 : d2));
+```
+
+你可以把单参数reducing工厂方法创建的收集器看作三参数方法的特殊情况，它把流中的第一个项目作为起点，把**恒等函数**（即一个函数仅仅是返回其输入参数）作为一个转换函数。这也意味着，要是把单参数reducing收集器传递给空流的collect方法，收集器就没有起点；正如我们在6.2.1节中所解释的，它将因此而返回一个Optional<Dish>对象。
+
+Stream接口的collect和reduce方法有何不同，因为两种方法通常会获得相同的结果。例如，你可以像下面这样使用reduce方法来实现toListCollector所做的工作：
+
+```java
+Stream<Integer> stream = Arrays.asList(1, 2, 3, 4, 5, 6).stream(); 
+List<Integer> numbers = stream.reduce( 
+ new ArrayList<Integer>(), 
+ (List<Integer> l, Integer e) -> { 
+ l.add(e); 
+ return l; }, 
+ (List<Integer> l1, List<Integer> l2) -> { 
+ l1.addAll(l2); 
+ return l1; });
+```
+
+这个解决方案有两个问题：一个语义问题和一个实际问题。语义问题在于，reduce方法旨在把两个值结合起来生成一个新值，它是一个不可变的归约。与此相反，collect方法的设计就是要改变容器，从而累积要输出的结果。这意味着，上面的代码片段是在滥用reduce方法，因为它在原地改变了作为累加器的List。你在下一章中会更详细地看到，以错误的语义使用reduce方法还会造成一个实际问题：这个归约过程不能并行工作，因为由多个线程并发修改同一个数据结构可能会破坏List本身。在这种情况下，如果你想要线程安全，就需要每次分配一个新的List，而对象分配又会影响性能。这就是collect方法特别适合表达可变容器上的归约的原因，更关键的是它适合并行操作。
+
+**1 收集框架的灵活性：以不同的方法执行同样的操作**
+
+你还可以进一步简化前面使用reducing收集器的求和例子——引用Integer类的sum方法，而不用去写一个表达同一操作的Lambda表达式。这会得到以下程序：
+
+```java
+int totalCalories = menu.stream().collect(reducing(0,  // 初始值
+ Dish::getCalories, // 转换函数
+ Integer::sum)); // 累积函数
+```
+
+从逻辑上说，归约操作的工作原理如图6-3所示：利用累积函数，把一个初始化为起始值的累加器，和把转换函数应用到流中每个元素上得到的结果不断迭代合并起来。
+
+![image-20231124094638665](media/images/image-20231124094638665.png)
+
+在现实中，我们在6.2节开始时提到的counting收集器也是类似地利用三参数reducing工厂方法实现的。它把流中的每个元素都转换成一个值为1的Long型对象，然后再把它们相加：
+
+```java
+public static <T> Collector<T, ?, Long>
+counting() {
+    return reducing(0L, e -> 1L, Long::sum);
+}
+```
+
+> **使用泛型?通配符**
+>
+> 在刚刚提到的代码片段中，你可能已经注意到了?通配符，它用作counting工厂方法返回的收集器签名中的第二个泛型类型。对这种记法你应该已经很熟悉了，特别是如果你经常使用Java的集合框架的话。**在这里，它仅仅意味着收集器的累加器类型未知**，换句话说，累加器本身可以是任何类型。我们在这里原封不动地写出了Collectors类中原始定义的方法签名，但在本章其余部分我们将避免使用任何通配符表示法，以使讨论尽可能简单。
+
+还可以使用将菜肴流映射为每一道菜的热量，然后用前一个版本中使用的方法引用来归约得到的流：
+
+```java
+int totalCalories = 
+ menu.stream().map(Dish::getCalories).reduce(Integer::sum).get();
+```
+
+更简洁的方法是将流映射成一个 IntStream，然后调用sum方法：
+
+```java
+int totalCalories = menu.stream().mapToInt(Dish::getCalories).sum();
+```
+
+**2 根据情况选择最佳解决方案**
+
+这再次说明了，函数式编程（特别是Java 8的Collections框架中加入的基于函数式风格原理设计的新API）通常提供了多种方法来执行同一个操作。这个例子还说明，收集器在某种程度上比Stream接口上直接提供的方法用起来更复杂，但好处在于它们能提供更高水平的抽象和概括，也更容易重用和自定义。
+
+**我们的建议是，尽可能为手头的问题探索不同的解决方案，但在通用的方案里面，始终选择最专门化的一个**。无论是从可读性还是性能上看，这一般都是最好的决定。例如，要计菜单的总热量，我们更倾向于最后一个解决方案（使用IntStream），因为它最简明，也很可能最易读。同时，它也是性能最好的一个，因为IntStream可以让我们避免自动拆箱操作，也就是从Integer到int的隐式转换，它在这里毫无用处。
+
+##### 6.3 分组
+
+一个常见的数据库操作是根据一个或多个属性对集合中的项目进行分组。就像前面讲到按货币对交易进行分组的例子一样，如果用指令式风格来实现的话，这个操作可能会很麻烦、啰嗦而且容易出错。
+
+假设你要把菜单中的菜按照类型进行分类，有肉的放一组，有鱼的放一组，其他的都放另一组。用Collectors.groupingBy工厂方法返回的收集器就可以轻松地完成这项任务，如下所示：
+
+```java
+Map<Dish.Type, List<Dish>> dishesByType = 
+ menu.stream().collect(groupingBy(Dish::getType));
+// {FISH=[prawns, salmon], OTHER=[french fries, rice, season fruit, pizza], MEAT=[pork, beef, chicken]}
+```
+
+这里，你给groupingBy方法传递了一个Function（以方法引用的形式），它提取了流中每一道Dish的Dish.Type。我们把这个Function叫作**分类函数**，因为它用来把流中的元素分成不同的组。如图6-4所示，分组操作的结果是一个Map，把分组函数返回的值作为映射的键，把流中所有具有这个分类值的项目的列表作为对应的映射值。在菜单分类的例子中，键就是菜的类型，值就是包含所有对应类型的菜肴的列表。
+
+![image-20231124140212364](media/images/image-20231124140212364.png)
+
+但是，分类函数不一定像方法引用那样可用，因为你想用以分类的条件可能比简单的属性访问器要复杂。例如，你可能想把热量不到400卡路里的菜划分为“低热量”（diet），热量400到700卡路里的菜划为“普通”（normal），高于700卡路里的划为“高热量”（fat）。由于Dish类的作者没有把这个操作写成一个方法，你无法使用方法引用，但你可以把这个逻辑写成Lambda表达式：
+
+```java
+enum CaloricLevel {DIET, NORMAL, FAT}
+private static Map<CaloricLevel, List<Dish>> groupDishesByCaloricLevel() {
+    return menu.stream().collect(
+        groupingBy(dish -> {
+            if (dish.getCalories() <= 400) return CaloricLevel.DIET;
+            else if (dish.getCalories() <= 700) return CaloricLevel.NORMAL;
+            else return CaloricLevel.FAT;
+        }));
+}
+```
+
+现在，你已经看到了如何对菜单中的菜肴按照类型和热量进行分组，但要是想同时按照这两个标准分类怎么办呢？
+
+###### 6.3.1 多级分组
+
+**要实现多级分组，我们可以使用一个由双参数版本的Collectors.groupingBy工厂方法创建的收集器，它除了普通的分类函数之外，还可以接受collector类型的第二个参数**。**那么要进行二级分组的话，我们可以把一个内层groupingBy传递给外层groupingBy，并定义一个为流中项目分类的二级标准**，如代码清单6-2所示。
+
+```java
+private static Map<Dish.Type, Map<CaloricLevel, List<Dish>>> groupDishedByTypeAndCaloricLevel() {
+    return menu.stream().collect(
+            groupingBy(Dish::getType, // 一级分类函数
+                    groupingBy((Dish dish) -> { // 二级分类函数
+                        if (dish.getCalories() <= 400) return CaloricLevel.DIET;
+                        else if (dish.getCalories() <= 700) return CaloricLevel.NORMAL;
+                        else return CaloricLevel.FAT;
+                    })
+            )
+    );
+}
+// 结果：
+//  {MEAT={FAT=[pork], DIET=[chicken], NORMAL=[beef]}, FISH={DIET=[prawns], NORMAL=[salmon]}, OTHER={DIET=[rice, season fruit], NORMAL=[french fries, pizza]}}
+```
+
+这里的外层Map的键就是第一级分类函数生成的值：“fish, meat, other”，而这个Map的值又是一个Map，键是二级分类函数生成的值：“normal, diet, fat”。最后，第二级map的值是流中元素构成的List，是分别应用第一级和第二级分类函数所得到的对应第一级和第二级键的值：“salmon、pizza…”这种多级分组操作可以扩展至任意层级，*n*级分组就会得到一个代表*n*级树形结构的*n*级Map。
+
+图6-5显示了为什么结构相当于*n*维表格，并强调了分组操作的分类目的。
+
+一般来说，把groupingBy看作“桶”比较容易明白。第一个groupingBy给每个键建立了一个桶。然后再用下游的收集器去收集每个桶中的元素，以此得到*n*级分组。
+
+![image-20231124140948867](media/images/image-20231124140948867.png)
+
+###### 6.3.2 按子组收集数据
+
+在上一节中，我们看到可以把第二个groupingBy收集器传递给外层收集器来实现多级分组。传递给第一个groupingBy的第二个收集器可以是任何类型，而不一定是另一groupingBy。例如，要数一数菜单中每类菜有多少个，可以传递counting收集器作为groupingBy收集器的第二个参数：
+
+```java
+private static Map<Dish.Type, Long> countDishesInGroups() {
+    return menu.stream().collect(groupingBy(Dish::getType, counting()));
+}
+// {MEAT=3, FISH=2, OTHER=4}
+```
+
+还要注意，普通的单参数groupingBy(f)（其中f是分类函数）实际上是groupingBy(f, toList())的简便写法。
+
+再举一个例子，你可以把前面用于查找菜单中热量最高的菜肴的收集器改一改，按照菜的类型分类：
+
+```java
+Map<Dish.Type, Optional<Dish>> mostCaloricByType = 
+ menu.stream() 
+ .collect(groupingBy(Dish::getType, 
+ maxBy(comparingInt(Dish::getCalories))));
+// {MEAT=Optional[pork], FISH=Optional[salmon], OTHER=Optional[pizza]}
+```
+
+> 这个Map中的值是Optional，因为这是maxBy工厂方法生成的收集器的类型，但实际上，如果菜单中没有某一类型的Dish，这个类型就不会对应一个Optional. empty()值，而且根本不会出现在Map的键中。groupingBy收集器只有在应用分组条件后，第一次在流中找到某个键对应的元素时才会把键加入分组Map中。这意味着Optional包装器在这里不是很有用，因为它不会仅仅因为它是归约收集器的返回类型而表达一个最终可能不存在却意外存在的值。
+
+1. 把收集器的结果转换为另一种类型
+
+因为分组操作的Map结果中的每个值上包装的Optional没什么用，所以你可能想要把它们去掉。要做到这一点，或者更一般地来说，**把收集器返回的结果转换为另一种类型**，你可以使用**Collectors.collectingAndThen**工厂方法返回的收集器，如下所示。
+
+**查找每个子组中热量最高的Dish**
+
+```java
+Map<Dish.Type, Dish> mostCaloricByType = 
+ menu.stream() 
+ .collect(groupingBy(Dish::getType, // 分类函数
+ collectingAndThen( 
+ maxBy(comparingInt(Dish::getCalories)), // 包装后的收集器
+ Optional::get))); //  转换函数
+
+private static Map<Dish.Type, Dish> mostCaloricDishesByTypeWithoutOprionals() {
+    return menu.stream().collect(
+        groupingBy(Dish::getType,
+                   collectingAndThen(
+                       reducing((d1, d2) -> d1.getCalories() > d2.getCalories() ? d1 : d2),
+                       Optional::get)));
+}
+```
+
+这个工厂方法接受两个参数——要转换的收集器以及转换函数，并返回另一个收集器。这个收集器相当于旧收集器的一个包装，collect操作的最后一步就是将返回值用转换函数做一个映射。在这里，被包起来的收集器就是用maxBy建立的那个，而转换函数Optional::get则把返回的Optional中的值提取出来。前面已经说过，这个操作放在这里是安全的，因为reducing收集器永远都不会返回Optional.empty()。其结果是下面的Map：
+
+{FISH=salmon, OTHER=pizza, MEAT=pork} 
+
+把好几个收集器嵌套起来很常见，它们之间到底发生了什么可能不那么明显。图6-6可以直观地展示它们是怎么工作的。从最外层开始逐层向里，注意以下几点。
+
+- 收集器用虚线表示，因此groupingBy是最外层，根据菜肴的类型把菜单流分组，得到三个子流。
+
+- groupingBy收集器包裹着collectingAndThen收集器，因此分组操作得到的每个子流都用这第二个收集器做进一步归约。
+
+- collectingAndThen收集器又包裹着第三个收集器maxBy。
+
+- 随后由归约收集器进行子流的归约操作，然后包含它的collectingAndThen收集器会对其结果应用Optional:get转换函数。
+
+- 对三个子流分别执行这一过程并转换而得到的三个值，也就是各个类型中热量最高的Dish，将成为groupingBy收集器返回的Map中与各个分类键（Dish的类型）相关联的值。
+
+![image-20231124143202586](media/images/image-20231124143202586.png)
+
+2. 与**groupingBy**联合使用的其他收集器的例子
+
+一般来说，通过groupingBy工厂方法的第二个参数传递的收集器将会对分到同一组中的所有流元素执行进一步归约操作。例如，你还重用求出所有菜肴热量总和的收集器，不过这次是对每一组Dish求和：
+
+```java
+private static Map<Dish.Type, Integer> sumCaloriesByType() {
+    return menu.stream().collect(groupingBy(Dish::getType,
+            summingInt(Dish::getCalories)));
+}
+//  {MEAT=1900, FISH=850, OTHER=1550}
+```
+
+然而常常和groupingBy联合使用的另一个收集器是mapping方法生成的。这个方法接受两个参数：**一个函数对流中的元素做变换，另一个则将变换的结果对象收集起来**。**其目的是在累加之前对每个输入元素应用一个映射函数，这样就可以让接受特定类型元素的收集器适应不同类型的对象**。我们来看一个使用这个收集器的实际例子。比方说你想要知道，对于每种类型的Dish，菜单中都有哪些CaloricLevel。我们可以把groupingBy和mapping收集器结合起来，如下所示：
+
+```java
+private static Map<Dish.Type, Set<CaloricLevel>> caloricLevelsByType() {
+    return menu.stream().collect(
+            groupingBy(Dish::getType, mapping(
+                    dish -> {
+                        if (dish.getCalories() <= 400) return CaloricLevel.DIET;
+                        else if (dish.getCalories() <= 700) return CaloricLevel.NORMAL;
+                        else return CaloricLevel.FAT;
+                    },
+                    toSet())));
+}
+// {MEAT=[FAT, DIET, NORMAL], FISH=[DIET, NORMAL], OTHER=[DIET, NORMAL]}
+```
+
+这里，就像我们前面见到过的，传递给映射方法的转换函数将Dish映射成了它的CaloricLevel：生成的CaloricLevel流传递给一个toSet收集器，它和toList类似，不过是把流中的元素累积到一个Set而不是List中，以便仅保留各不相同的值。如可以修改成所需要的集合类型
+
+```java
+Map<Dish.Type, Set<CaloricLevel>> caloricLevelsByType = 
+menu.stream().collect( 
+ groupingBy(Dish::getType, mapping( 
+ dish -> { if (dish.getCalories() <= 400) return CaloricLevel.DIET; 
+ else if (dish.getCalories() <= 700) return CaloricLevel.NORMAL; 
+ else return CaloricLevel.FAT; }, 
+ toCollection(HashSet::new) )));
+```
+
+##### 6.4 分区
+
+分区是分组的特殊情况：由一个谓词（返回一个布尔值的函数）作为分类函数，它称分区函数。分区函数返回一个布尔值，这意味着得到的分组Map的键类型是Boolean，于是它最多可以分为两组——true是一组，false是一组。例如，如果你是素食者或是请了一位素食的朋友来共进晚餐，可能会想要把菜单按照素食和非素食分开：
+
+```java
+Map<Boolean, List<Dish>> partitionedMenu = 
+ menu.stream().collect(partitioningBy(Dish::isVegetarian));
+// {false=[pork, beef, chicken, prawns, salmon], true=[french fries, rice, season fruit, pizza]}
+```
+
+那么通过Map中键为true的值，就可以找出所有的素食菜肴了：
+
+`List<Dish> vegetarianDishes = partitionedMenu.get(true); `
+
+请注意，用同样的分区谓词，对菜单List创建的流作筛选，然后把结果收集到另外一个List中也可以获得相同的结果：
+
+```java
+List<Dish> vegetarianDishes = 
+menu.stream().filter(Dish::isVegetarian).collect(toList()); 
+```
+
+###### 6.4.1 分区的优势
 
