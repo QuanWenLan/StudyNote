@@ -646,3 +646,7 @@ https://docs.spring.io/spring-boot/docs/current/reference/html/features.html#fea
 
 [如何在 Spring Boot 应用中做单元测试？（文末福利） (qq.com)](https://mp.weixin.qq.com/s/NK0wlFbfbnCg12j38vpIaQ)
 
+##### 一个spring boot项目能处理多少个请求
+
+https://www.cnblogs.com/thisiswhy/p/17559808.html
+
