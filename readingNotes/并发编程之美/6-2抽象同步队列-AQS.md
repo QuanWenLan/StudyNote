@@ -10,9 +10,15 @@
 
 ![image-20211102145511837](media/images/image-20211102145511837.png)
 
-AQS是一个FIFO的双向队列，其内部通过节点head和tail记录队首和队尾元素，队列元素的类型为Node。
+AQS是一个FIFO的双向队列，其内部通过节点head和tail记录队首和队尾元素，**队列元素的类型为Node**。有阻塞就需要排队，实现排队必然需要队列。
 
-其中Node中的**thread**变量用来存放进入AQS队列里面的线程；Node节点内部的**SHARED**用来标记该线程是获取共享资源时被阻塞挂起后放入AQS队列的，**EXCLUSIVE**用来标记线程是获取独占资源时被挂起后放入AQS队列的；**waitStatus**记录当前线程等待状态，可以为**CANCELLED**（线程被取消了）、**SIGNAL**（线程需要被唤醒）、**CONDITION**（线程在条件队列里面等待）、**PROPAGATE**（释放共享资源时需要通知其他节点）; **prev**记录当前节点的前驱节点，**next**记录当前节点的后继节点。
+![image-20231207210449455](media/images/image-20231207210449455.png)
+
+![image-20231207211643608](media/images/image-20231207211643608.png)
+
+![image-20231207215716983](media/images/image-20231207215716983.png)
+
+Node结构如上图所示。其中Node中的**thread**变量用来存放进入AQS队列里面的线程；Node节点内部的**SHARED**用来标记该线程是获取共享资源时被阻塞挂起后放入AQS队列的，**EXCLUSIVE**用来标记线程是获取独占资源时被挂起后放入AQS队列的；**waitStatus**记录当前线程等待状态，可以为**CANCELLED**（线程被取消了）、**SIGNAL**（线程需要被唤醒）、**CONDITION**（线程在条件队列里面等待）、**PROPAGATE**（释放共享资源时需要通知其他节点）; **prev**记录当前节点的前驱节点，**next**记录当前节点的后继节点。
 
 **在AQS中维持了一个单一的状态信息state**，可以通过getState、setState、compareAndSetState函数修改其值。对于**ReentrantLock**的实现来说，**state可以用来表示当前线程获取锁的可重入次数**；对于**读写锁ReentrantReadWriteLock**来说，**state的高16位表示读状态，也就是获取该读锁的次数，低16位表示获取到写锁的线程的可重入次数**；对于**semaphore**来说，**state用来表示当前可用信号的个数**；对于**CountDownlatch**来说，**state用来表示计数器当前的值**。
 
@@ -105,14 +111,41 @@ public final boolean releaseShared(int arg) {
 
 ##### 如何维护 AQS 提供的队列，主要看入队操作 
 
-- 入队操作：当一个线程获取锁失败后该线程会被转换成 Node 节点，然后就会使用 enq(final Node node) 方法将该节点插入到 AQS 的阻塞队列。 尾插法
+入队操作：当一个线程获取锁失败后该线程会被转换成 Node 节点，然后就会使用 enq(final Node node) 方法将该节点插入到 AQS 的阻塞队列。 尾插法
+
+```java
+// 当 tryAcquire 失败是，会调用入队的操作
+public final void acquire(int arg) {
+    if (!tryAcquire(arg) &&
+        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+        selfInterrupt();
+}
+
+private Node addWaiter(Node mode) {
+    Node node = new Node(Thread.currentThread(), mode);
+    // Try the fast path of enq; backup to full enq on failure
+    Node pred = tail; // 第一个线程入队的时候不走这里，因为tail为null，后续则会走
+    if (pred != null) {
+        node.prev = pred;
+        if (compareAndSetTail(pred, node)) {
+            pred.next = node;
+            return node;
+        }
+    }
+    // 入队逻辑
+    enq(node);
+    return node;
+}
+```
+
+入队逻辑，当线程A获取锁了之后，线程B入队后，线程C加入队列的时候不需要走enq方法了
 
 ```java
 private Node enq(final Node node) {
     for (;;) {
         Node t = tail;
         if (t == null) { // Must initialize
-            if (compareAndSetHead(new Node()))
+            if (compareAndSetHead(new Node())) // 这里设置了队列的初始化，创建了一个节点作为傀儡节点，所以说队列中的第一个节点是这个，而不是获取锁失败的线程节点。
                 tail = head;
         } else {
             node.prev = t;
@@ -122,6 +155,124 @@ private Node enq(final Node node) {
             }
         }
     }
+}
+```
+
+可参考三个线程为同一个lock，在A获取了锁之后，B、C获取锁后入队的结果。
+
+![image-20231210164344494](media/images/image-20231210164344494.png)
+
+##### 入队之后的获取锁
+
+一个自旋操作，循环去获取锁，当锁被释放了之后。
+
+```java
+final boolean acquireQueued(final Node node, int arg) {
+    boolean failed = true;
+    try {
+        boolean interrupted = false;
+        for (;;) {
+            final Node p = node.predecessor();
+            if (p == head && tryAcquire(arg)) {
+                setHead(node);
+                p.next = null; // help GC
+                failed = false;
+                return interrupted;
+            }
+            if (shouldParkAfterFailedAcquire(p, node) &&
+                parkAndCheckInterrupt())
+                interrupted = true;
+        }
+    } finally {
+        if (failed)
+            cancelAcquire(node);
+    }
+}
+```
+
+final Node p = node.predecessor(); 当线程B执行第一次的时候，线程A还没释放锁，线程B尝试获取一次，此时这个 p 是队列的那个傀儡节点（也是head节点），此时相同，但是tryAcquire(arg)失败。下面if逻辑shouldParkAfterFailedAcquire(p, node) && parkAndCheckInterrupt()。傀儡节点 的waitStatus为0，Node.SIGNAL是-1，所以走了下面else的逻辑，设置pred的watisttus为-1返回了false。
+
+随后循环第二次，同样获取失败，执行shouldParkAfterFailedAcquire(p, node) && parkAndCheckInterrupt()逻辑，此时的Node p = node.predecessor();为傀儡节点的waitStutus为-1了，所以会返回true，然后走了parkAndCheckInterrupt()方法，线程B被阻塞在这里了。
+
+但是方法acquireQueued是没有结束的！！！
+
+```java
+private static boolean shouldParkAfterFailedAcquire(Node pred, Node node) {
+    int ws = pred.waitStatus;
+    if (ws == Node.SIGNAL)
+        /*
+         * This node has already set status asking a release
+         * to signal it, so it can safely park.
+         */
+        return true;
+    if (ws > 0) {
+        /*
+         * Predecessor was cancelled. Skip over predecessors and
+         * indicate retry.
+         */
+        do {
+            node.prev = pred = pred.prev;
+        } while (pred.waitStatus > 0);
+        pred.next = node;
+    } else {
+        /*
+         * waitStatus must be 0 or PROPAGATE.  Indicate that we
+         * need a signal, but don't park yet.  Caller will need to
+         * retry to make sure it cannot acquire before parking.
+         */
+        compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
+    }
+    return false;
+}
+
+private final boolean parkAndCheckInterrupt() {
+    LockSupport.park(this);
+    return Thread.interrupted();
+}
+```
+
+##### 释放锁
+
+```java
+public final boolean release(int arg) {
+    if (tryRelease(arg)) {
+        Node h = head;
+        if (h != null && h.waitStatus != 0)
+            unparkSuccessor(h);
+        return true;
+    }
+    return false;
+}
+```
+
+释放锁成功后，准备唤醒队列的线程节点了successor（继承者、继承的事物）。此时 h 是傀儡节点，唤醒后面的节点，从上面的3个线程来说这里就是唤醒线程B。h.waitStatus 为 -1 。此时node是傀儡节点，next节点是线程B，此时则会调用  LockSupport.unpark(s.thread); 了唤醒B线程。唤醒了之后会回到 acquireQueued 这个方法的parkAndCheckInterrupt了。线程B是没有被中断的，继续之前的循环了。
+
+```java
+private void unparkSuccessor(Node node) {
+    /*
+     * If status is negative (i.e., possibly needing signal) try
+     * to clear in anticipation of signalling.  It is OK if this
+     * fails or if status is changed by waiting thread.
+     */
+    int ws = node.waitStatus;
+    if (ws < 0)
+        compareAndSetWaitStatus(node, ws, 0);
+
+    /*
+     * Thread to unpark is held in successor, which is normally
+     * just the next node.  But if cancelled or apparently null,
+     * traverse backwards from tail to find the actual
+     * non-cancelled successor.
+     */
+    Node s = node.next;
+    if (s == null || s.waitStatus > 0) {
+        s = null;
+        for (Node t = tail; t != null && t != node; t = t.prev)
+            if (t.waitStatus <= 0)
+                s = t;
+    }
+    if (s != null)
+        LockSupport.unpark(s.thread);
 }
 ```
 

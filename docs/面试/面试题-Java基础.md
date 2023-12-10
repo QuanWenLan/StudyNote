@@ -86,7 +86,32 @@ System.out.println(s == "abcd"); // true
 
 字符串常量池：[Java中的字符串常量池 - 技术小黑屋 (droidyue.com)](https://droidyue.com/blog/2014/12/21/string-literal-pool-in-java/) 
 
-字符串拼接内部实现： [Java细节：字符串的拼接 - 技术小黑屋 (droidyue.com)](https://droidyue.com/blog/2014/08/30/java-details-string-concatenation/) x 
+字符串拼接内部实现： [Java细节：字符串的拼接 - 技术小黑屋 (droidyue.com)](https://droidyue.com/blog/2014/08/30/java-details-string-concatenation/) 
+
+##### 字符串常量池
+
+String.intern() 是一个本地方法，作用是如果字符串常量池中已经包含了一个等于此对象的字符串，则返回代表池中这个字符串的String对象的引用；否则，会将此string对象包含的字符串添加到常量池中，并且返回此string对象的引用。Java8运行时常量池从方法区中的一部分，改成了用原空间来代替了。
+
+![image-20231206210326854](media/images/image-20231206210326854.png)
+
+为什么呢？因为有一个初始化的Java字符串（JDK自带的），在加载sun.misc.Version这个类的时候进入常量池。
+
+```java
+public final class System {
+
+    /* register the natives via the static initializer.
+     *
+     * VM will invoke the initializeSystemClass method to complete
+     * the initialization for this class separated from clinit.
+     * Note that to use properties set by the VM, see the constraints
+     * described in the initializeSystemClass method.
+     */
+    private static native void registerNatives();
+}
+// 是通过这个方法加载的。initializeSystemClass
+```
+
+![image-20231206211032410](media/images/image-20231206211032410.png)
 
 ##### try catch finally 执行顺序
 

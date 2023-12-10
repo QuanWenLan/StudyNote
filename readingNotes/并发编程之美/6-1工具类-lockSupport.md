@@ -2,7 +2,23 @@
 
 JDK中的rt.jar包里面的LockSupport是个工具类，**它的主要作用是挂起和唤醒线程，该工具类是创建锁和其他同步类的基础**。
 
+**用于创建锁和其他同步类的基本线程阻塞原语**
+
 **LockSupport类与每个使用它的线程都会关联一个许可证**，在默认情况下**调用**LockSupport类的方法**的线程**是**不持有许可证的**。LockSupport是使用Unsafe类实现的，介绍几个主要函数。  
+
+##### wait 和 notify的缺陷
+
+Object 类中的wait、notify、notifyAll用于线程等待和唤醒的方法需要在synchronized内部执行，没有获取到锁的话，会报异常。还要先wait先调用，notify后调用，否则wait会一直阻塞。
+
+##### Condition中await和signal的缺陷
+
+必须要和lock.lock()、lock.unlock()结合使用，否则直接使用也会报异常。先调用signal，再调用await，也会出现后面await后面的代码无法运行的情况。
+
+**LockSupport优点：不需要使用synchronized和lock**。
+
+![image-20231206233914623](media/images/image-20231206233914623.png)
+
+![image-20231206234038506](media/images/image-20231206234038506.png)
 
 ##### （1）void park()
 
@@ -18,9 +34,9 @@ public static void main(String[] args) {
 
 如上面代码直接在main函数里面调用park方法，最终只会输出begin park!，然后当前线程被挂起，这是因为在默认情况下调用线程是不持有许可证的。
 
-**在其他线程调用unpark（Thread thread）方法并且将当前线程作为参数时，调用park方法而被阻塞的线程会返回**。另外，**如果其他线程调用了阻塞线程的interrupt（）方法，设置了中断标志或者线程被虚假唤醒，则阻塞线程也会返回**。**所以在调用park方法时最好也使用循环条件判断方式**。
+**在其他线程调用unpark（Thread thread）方法并且将当前线程作为参数时，调用park方法而被阻塞的线程会返回**。另外，**如果其他线程调用了阻塞线程的interrupt()方法，设置了中断标志或者线程被虚假唤醒，则阻塞线程也会返回**。**所以在调用park方法时最好也使用循环条件判断方式**。
 
-需要注意的是，因调用park（）方法而被阻塞的线程被其他线程中断而返回时并不会抛出InterruptedException异常。 
+需要注意的是，因调用park()方法而被阻塞的线程被其他线程中断而返回时并不会抛出InterruptedException异常。 
 
 park函数，**阻塞线程，并且在该线程在下列情况发生之前都会被阻塞**：
 
@@ -39,7 +55,7 @@ public static void main(String[] args) {
     System.out.println("begin park!");
     // 使当前线程获取到许可证
     LockSupport.unpark(Thread.currentThread());
-    // 再次调用 park 方法
+    // 再次调用 park 方法，这里是类似于没有执行一样，形同虚设，不用这一行也是一样的
     LockSupport.park();
     System.out.println("end park!");
 }
