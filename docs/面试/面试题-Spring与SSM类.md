@@ -425,3 +425,80 @@ public class MyAspect {
 ```
 
 无论你有一个业务方法，还是一万个业务方法，对我们开发者来说只需编写一次切面逻辑，就能让所有业务方法生效，极大提高了我们的开发效率。
+
+##### spring 中有2个id相同的bean，会报错吗？
+
+（1）如果是xml配置的bean，**在一个xml文件里面有2个id相同的bean，在启动的时候就会报错**，且报错发生在spring对xml文件进行解析的时候，然后转化为BeanDefinition阶段。**如果是在2个xml文件中**，使用了2个id相同的bean，那么ioc容器会在加载bean的时候，**用后者覆盖前者，所以最终只保留一个**（具体是因为加载xml文件是一个一个加载的，多个xml文件中的相同bean id不会有影响）。报错位置：
+
+![image-20231211094623054](media/images/image-20231211094623054.png)
+
+​	代码，通过证明在识别xml文件的bean对象时候，转化成BeanDefinition报错了。
+
+```xml
+<bean id="teacher" class="springtest.lookup.bean.Teacher"/>
+<bean id="teacher" class="springtest.lookup.bean.Teacher"/>
+```
+
+  > ```java
+  > protected void checkNameUniqueness(String beanName, List<String> aliases, Element beanElement) {
+  > String foundName = null;
+  > 
+  > if (StringUtils.hasText(beanName) && this.usedNames.contains(beanName)) {
+  >    foundName = beanName;
+  > }
+  > if (foundName == null) {
+  >    foundName = CollectionUtils.findFirstMatch(this.usedNames, aliases);
+  > }
+  > if (foundName != null) {
+  >    error("Bean name '" + foundName + "' is already used in this <beans> element", beanElement);
+  > }
+  > 
+  > this.usedNames.add(beanName);
+  > this.usedNames.addAll(aliases);
+  > }
+  > ```
+
+（2）到了spring3.x版本之后，增加了注解配置方式。可以通过@Configuration来声明一个配置类，然后使用@Bean声明一个Bean，如果我们在同一个配置类里面声明多个相同id的bean，IoC容器就会只会注册第一个声明的Bean，后续重复名字的Bean相当于就会直接忽略。像这样一段代码，在Spring IoC容器中，**就只会保留service1这个实例**。**后续相同名字的Bean就不会再加载，当然也不会报错**。
+
+```java
+@Configuration
+public class SpringConfiguration {
+@Bean( name = "service" )
+public Service1 service1( ){
+	return new Service1( );
+}
+@Bean( name = "service" )
+public Service2 service2( ){
+    return new Service2( );
+    }
+}
+```
+
+（3）如果使用@Autowired注解来实现依赖注入的话，**它是根据类型来注入的**。因为IOC容器只有Service1的实例，所以启动的时候会提示找不到Service2这个实例。
+
+```java
+@Autowired
+private Service1 service1;
+@Autowired
+private Service2 service2;
+```
+
+如果是@Resource，是根据名称来注入的。那么在IoC容器中只能获取到Service1的实例，于是，Spring会把Service1这个实例赋值给Service2，这个时候，就会提示类型不匹配的错误。
+
+```java
+@Resource( name="service" )
+private Service1 service1;
+@Resource( name="service" )
+private Service2 service2;
+```
+
+这个需要配置注解驱动开发，使用了 context标签会注入下面这些类
+
+![image-20231211103250084](media/images/image-20231211103250084.png)
+
+```xml
+<context:annotation-config/>
+<context:component-scan base-package="springtest.annotation"/>
+```
+
+代码报错位置：
