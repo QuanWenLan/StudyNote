@@ -395,7 +395,7 @@ public int registerBeanDefinitions(Document doc, Resource resource) throws BeanD
 
 **在这个方法中很好地应用了面向对象中单一职责的原则，将逻辑处理委托给单一的类进行处理，而这个逻辑处理类就是BeanDefinitionDocumentReader**。
 
- BeanDefinitionDocumentReader是一个接口，而实例化的工作是在createBeanDefinitionDocumentReader()中完成的，而通过此方法，**BeanDefinitionDocumentReader真正的类型其实已经是DefaultBeanDefinitionDocumentReader了**，进入DefaultBeanDefinitionDocumentReader后，发现这个方法的重要目的之一就是提取root，以便于再次将root作为参数继续BeanDefinition的注册。 
+BeanDefinitionDocumentReader是一个接口，而实例化的工作是在createBeanDefinitionDocumentReader()中完成的，而通过此方法，**BeanDefinitionDocumentReader真正的类型其实已经是DefaultBeanDefinitionDocumentReader了**，进入DefaultBeanDefinitionDocumentReader后，发现这个方法的重要目的之一就是提取root，以便于再次将root作为参数继续BeanDefinition的注册。 
 
 随后进入方法 doRegisterBeanDefinitions 中，这个方法才算是真正的解析了，BeanDefinitionDocumentReader.doRegisterBeanDefinitions(root)
 
@@ -816,19 +816,19 @@ public AbstractBeanDefinition parseBeanDefinitionAttributes(Element ele, String 
 同样，子元素lookup-method似乎并不是很常用，但是在某些时候它的确是非常有用的属性，通常我们称它为**获取器注入**。引用《Spring in Action》中的一句话：**获取器注入是一种特殊的方法注入，它是把一个方法声明为返回某种类型的bean，但实际要返回的bean是在配置文件里面配置的，此方法可用在设计有些可插拔的功能上，解除程序依赖**。 
 
 ```java 
-1. 首先创建一个父类
+// 1. 首先创建一个父类
 public class User {
     public void showMe() {
         System.out.println("i am user");
     }
 }
-2. 创建子类
+// 2. 创建子类
 public class Teacher extends User {
     public void showMe() {
         System.out.println("i am teacher");
     }
 }
-3. 创建调用方法
+// 3. 创建调用方法
 public abstract class GetBeanTest {
     public void showMe() {
         this.getBean().showMe();
@@ -837,7 +837,7 @@ public abstract class GetBeanTest {
 
     public abstract User getBean();
 }
-4. 测试
+// 4. 测试
 public class MainTest {
     public static void main(String[] args) {
         ClassPathXmlApplicationContext bf = new ClassPathXmlApplicationContext("lookupTest.xml");
@@ -1125,9 +1125,9 @@ public Object parsePropertyValue(Element ele, BeanDefinition bd, @Nullable Strin
 parsePropertyElements函数完成了对property属性的提取，property使用方式如下：
 
 ```xml
-    <bean id="testChangeMethod" class="springtest.replace.bean.TestChangeMethod">
-       <property name="str" value="aaa"/>
-    </bean>
+<bean id="testChangeMethod" class="springtest.replace.bean.TestChangeMethod">
+    <property name="str" value="aaa"/>
+</bean>
 ```
 
 源代码：
@@ -1299,7 +1299,7 @@ public void registerBeanDefinition(String beanName, BeanDefinition beanDefinitio
       }
       else {
          // Still in startup registration phase
-         this.beanDefinitionMap.put(beanName, beanDefinition); // 放如到 beanDefinitionMap 中，注册 beanDefinition
+         this.beanDefinitionMap.put(beanName, beanDefinition); // 放到 beanDefinitionMap 中，注册 beanDefinition
          this.beanDefinitionNames.add(beanName); // 记录 beanName 
          removeManualSingletonName(beanName);
       }
@@ -2384,7 +2384,7 @@ protected Object doCreateBean(final String beanName, final RootBeanDefinition mb
    if (earlySingletonExposure) {
       Object earlySingletonReference = getSingleton(beanName, false);
       if (earlySingletonReference != null) {
-         if (exposedObject == bean) { // 如果 exposeObject 没有在初始化方法中被改变，也就是i没有被增强
+         if (exposedObject == bean) { // 如果 exposeObject 没有在初始化方法中被改变，也就是没有被增强
             exposedObject = earlySingletonReference;
          }
          else if (!this.allowRawInjectionDespiteWrapping && hasDependentBean(beanName)) {
@@ -2558,8 +2558,7 @@ private InstantiationStrategy instantiationStrategy = new CglibSubclassingInstan
 ```java 
 public Object instantiate(RootBeanDefinition bd, @Nullable String beanName, BeanFactory owner) {
    // Don't override the class with CGLIB if no overrides.
-如果有需要覆盖或者动态替换的方法则当然需要使用 CGLIB 进行动态代理，因为可以在创建代理的同时将动态方法织入类中，
-但是如果没有需要动态改变的方法，为了方便直接反射就可以了。
+如果有需要覆盖或者动态替换的方法则当然需要使用 CGLIB 进行动态代理，因为可以在创建代理的同时将动态方法织入类中，但是如果没有需要动态改变的方法，为了方便直接反射就可以了。
    if (!bd.hasMethodOverrides()) {
       Constructor<?> constructorToUse;
       synchronized (bd.constructorArgumentLock) {
@@ -2652,7 +2651,7 @@ private Class<?> createEnhancedSubclass(RootBeanDefinition beanDefinition) {
 
 ###### **5.7.2 记录创建 bean 的 ObjectFactory**   
 
-###### seeter循环依赖中aop处理逻辑
+###### setter循环依赖中aop处理逻辑
 
 在 doCreateBean 函数中有这样一段代码，在将这个逻辑放进去之后，如果有循环依赖，populateBean执行后，后面的initializeBean 是先不会执行的，而是会继续去创建对象所依赖的属性对象，比如A->B,B->A，最后再获取到A的时候会去执行这个lamada表达式的，也就是会执行创建AOP代理的过程。
 

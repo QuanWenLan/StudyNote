@@ -254,6 +254,7 @@ public Document loadDocument(InputSource inputSource, EntityResolver entityResol
 ###### 模板方法模式
 
 - JdbcTemplate
+- DefaultBeanDefinitionDocumentReader
 
 ```java
 //org.springframework.beans.factory.xml.DefaultBeanDefinitionDocumentReader#doRegisterBeanDefinitions, 这里的 root  是 <beans xxxx></beans>
