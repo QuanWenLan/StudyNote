@@ -252,3 +252,101 @@ CountDownLatch 是使用 AQS 实现的，使用 AQS 的状态变量来存放计�
 **缺点：**
 
 CountDownLatch 的计数器是一次性的，也就是等到计数器值变为 0 后，再调用 CountDownLatch  的 await 和 countDown 方法都会立刻返回，这就起不到线程同步的效果了。
+
+#### 实际应用场景
+
+在redisson的加锁等待里面有使用到这个并发工具。org.redisson.RedissonLock#tryLock(long, long, java.util.concurrent.TimeUnit)
+
+```java
+public boolean tryLock(long waitTime, long leaseTime, TimeUnit unit) throws InterruptedException {
+        long time = unit.toMillis(waitTime);
+        long current = System.currentTimeMillis();
+        final long threadId = Thread.currentThread().getId();
+        Long ttl = tryAcquire(leaseTime, unit, threadId);
+        // lock acquired
+        if (ttl == null) {
+            return true;
+        }
+        
+        time -= (System.currentTimeMillis() - current);
+        if (time <= 0) {
+            acquireFailed(threadId);
+            return false;
+        }
+        
+        current = System.currentTimeMillis();
+        final RFuture<RedissonLockEntry> subscribeFuture = subscribe(threadId);
+    // 在这个await里面有使用
+        if (!await(subscribeFuture, time, TimeUnit.MILLISECONDS)) {
+            if (!subscribeFuture.cancel(false)) {
+                subscribeFuture.addListener(new FutureListener<RedissonLockEntry>() {
+                    @Override
+                    public void operationComplete(Future<RedissonLockEntry> future) throws Exception {
+                        if (subscribeFuture.isSuccess()) {
+                            unsubscribe(subscribeFuture, threadId);
+                        }
+                    }
+                });
+            }
+            acquireFailed(threadId);
+            return false;
+        }
+
+        try {
+            time -= (System.currentTimeMillis() - current);
+            if (time <= 0) {
+                acquireFailed(threadId);
+                return false;
+            }
+        
+            while (true) {
+                long currentTime = System.currentTimeMillis();
+                ttl = tryAcquire(leaseTime, unit, threadId);
+                // lock acquired
+                if (ttl == null) {
+                    return true;
+                }
+
+                time -= (System.currentTimeMillis() - currentTime);
+                if (time <= 0) {
+                    acquireFailed(threadId);
+                    return false;
+                }
+
+                // waiting for message
+                currentTime = System.currentTimeMillis();
+                if (ttl >= 0 && ttl < time) {
+                    getEntry(threadId).getLatch().tryAcquire(ttl, TimeUnit.MILLISECONDS);
+                } else {
+                    getEntry(threadId).getLatch().tryAcquire(time, TimeUnit.MILLISECONDS);
+                }
+
+                time -= (System.currentTimeMillis() - currentTime);
+                if (time <= 0) {
+                    acquireFailed(threadId);
+                    return false;
+                }
+            }
+        } finally {
+            unsubscribe(subscribeFuture, threadId);
+        }
+//        return get(tryLockAsync(waitTime, leaseTime, unit));
+    }
+```
+
+位置
+
+```java
+public boolean await(RFuture<?> future, long timeout, TimeUnit timeoutUnit) throws InterruptedException {
+    final CountDownLatch l = new CountDownLatch(1);
+    future.addListener(new FutureListener<Object>() {
+        // 这里是订阅成功后，countDown
+        @Override
+        public void operationComplete(Future<Object> future) throws Exception {
+            l.countDown();
+        }
+    });
+    // 等待传递进来的一个时间，等递减为0后返回
+    return l.await(timeout, timeoutUnit);
+}
+```
