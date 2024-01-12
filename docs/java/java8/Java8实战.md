@@ -25,7 +25,7 @@ public static List<Apple> filterApplesByColor(List<Apple> inventory,
                                               String color) {
     List<Apple> result=new ArrayList<Apple>();
     for (Apple apple: inventory){
-        if ( apple.getColor().equals(color) ) { // 改变的地方
+        if (apple.getColor().equals(color) ) { // 改变的地方
             result.add(apple);
         }
     }
@@ -318,11 +318,11 @@ public interface PrivilegedAction<V>{
 
 ##### 3.2.2 函数描述符
 
-函数式接口的抽象方法的签名基本上就是Lambda表达式的签名。我们将这种抽象方法叫作函数描述符。例如，Runnable接口可以看作一个什么也不接受什么也不返回（void）的函数的签名，因为它只有一个叫作run的抽象方法，这个方法什么也不接受，什么也不返回（void）。
+**函数式接口的抽象方法的签名基本上就是Lambda表达式的签名**。我们将这种抽象方法叫作**函数描述符**。例如，Runnable接口可以看作一个什么也不接受什么也不返回（void）的函数的签名，因为它只有一个叫作run的抽象方法，这个方法什么也不接受，什么也不返回（void）。
 
 **@FunctionalInterface又是怎么回事？**
 
-如果你去看看新的Java API，会发现函数式接口带有@FunctionalInterface的标注（3.4节中会深入研究函数式接口，并会给出一个长长的列表）。这个标注用于表示该接口会设计成一个函数式接口。如果你用@FunctionalInterface定义了一个接口，而它却不是函数式接口的话，编译器将返回一个提示原因的错误。例如，错误消息可能是“Multiple non-overriding abstract methods found in interface Foo”，表明存在多个抽象方法。请注意，@FunctionalInter-face不是必需的，但对于为此设计的接口而言，使用它是比较好的做法。它就像是@Override标注表示方法被重写了。
+如果你去看看新的Java API，会发现函数式接口带有@FunctionalInterface的标注（3.4节中会深入研究函数式接口，并会给出一个长长的列表）。**这个标注用于表示该接口会设计成一个函数式接口**。如果你用@FunctionalInterface定义了一个接口，而它却不是函数式接口的话，编译器将返回一个提示原因的错误。例如，错误消息可能是“Multiple non-overriding abstract methods found in interface Foo”，表明存在多个抽象方法。请注意，@FunctionalInter-face不是必需的，但对于为此设计的接口而言，使用它是比较好的做法。它就像是@Override标注表示方法被重写了。
 
 #### 3.3 实际操作：环绕执行模式
 
@@ -347,7 +347,7 @@ public static String processFile() throws IOException {
 String result=processFile((BufferedReader br)->br.readLine()+br.readLine());
 ```
 
-##### 2 手机用函数式接口来传递行为
+##### 2 使用函数式接口来传递行为
 
 Lambda仅可用于上下文是函数式接口的情况。你需要创建一个能匹配BufferedReader-> String，还可以抛出IOException异常的接口。让我们把这一接口叫作BufferedReaderProcessor吧。
 
@@ -380,15 +380,13 @@ public static String processFile(BufferedReaderProcessor p) throws
 处理一行
 
 ```java
-String oneLine = 
-    processFile((BufferedReader br) -> br.readLine()); 
+String oneLine = processFile((BufferedReader br) -> br.readLine()); 
 ```
 
 处理两行
 
 ```java
-String twoLines = 
-    processFile((BufferedReader br) -> br.readLine() + br.readLine());
+String twoLines = processFile((BufferedReader br) -> br.readLine() + br.readLine());
 ```
 
 #### 3.4 使用函数式接口
@@ -464,7 +462,7 @@ List<Integer> l = map(Arrays.asList("lambdas","in","action"), (String s) -> s.le
 
 一般来说，针对专门的输入参数类型的函数式接口的名称都要加上对应的原始类型前缀，比如DoublePredicate、IntConsumer、LongBinaryOperator、IntFunction等。Function接口还有针对输出参数类型的变种：ToIntFunction<T>、IntToDoubleFunction等。
 
-下表总结了Java API中提供的最常用的函数式接口及其函数描述符。可以自己设计一个，(T, U) -> R 的表达方式展示应当如何思考一个函数描述符。表的左侧代表了参数类型，这里它代表一个函数，具有两个参数，分别为泛型T和U，返回类型为R。
+下表总结了Java API中提供的最常用的函数式接口及其函数描述符。可以自己设计一个，**(T, U) -> R 的表达方式展示应当如何思考一个函数描述符**。**表的左侧代表了参数类型，这里它代表一个函数，具有两个参数，分别为泛型T和U，返回类型为R**。
 
 ###### 常用函数式接口
 
@@ -520,7 +518,7 @@ Comparator<Apple> c =
     (a1, a2) -> a1.getWeight().compareTo(a2.getWeight()); // 类型推断
 ```
 
-###### 使用局部变量
+###### 使用局部变量必须为 final
 
 局部变量必须显式声明为final，或事实上是final。换句话说，**Lambda表达式只能捕获指派给它们的局部变量一次**。
 
@@ -560,11 +558,11 @@ inventory.sort(comparing(Apple::getWeight));
 
 ###### **如何构建方法引用**
 
-(1) 指向静态方法的方法引用（例如Integer的parseInt方法，写作Integer::parseInt）。
+(1) **指向静态方法的方法引用**（例如Integer的parseInt方法，写作Integer::parseInt）。
 
-(2) 指向任意类型实例方法的方法引用（例如String的length方法，写作String::length）。
+(2) **指向任意类型实例方法的方法引用**（例如String的length方法，写作String::length）。
 
-(3) 指向现有对象的实例方法的方法引用（假设你有一个局部变量expensiveTransaction用于存放Transaction类型的对象，它支持实例方法getValue，那么你就可以写expensive-Transaction::getValue）。
+(3) **指向现有对象的实例方法的方法引用**（假设你有一个局部变量expensiveTransaction用于存放Transaction类型的对象，它支持实例方法getValue，那么你就可以写expensive-Transaction::getValue）。
 
 ![image-20231025153328842](media/images/image-20231025153328842.png)
 
@@ -1058,7 +1056,7 @@ List<String> uniqueCharacters =
  .collect(Collectors.toList());
 ```
 
-使用flatMap方法的效果是，各个数组并不是分别映射成一个流，而是映射成流的内容。所有使map(Arrays::stream)时生成的单个流都被合并起来，即扁平化为一个流。
+使用flatMap方法的效果是，各个数组并不是分别映射成一个流，而是映射成流的内容。所有使用map(Arrays::stream)时生成的单个流都被合并起来，即扁平化为一个流。
 
 ![image-20231027104351254](media/images/image-20231027104351254.png)
 
@@ -1197,7 +1195,7 @@ lambda (a, b) -> a + b。
 
 `int product = numbers.stream().reduce(1, (a, b) -> a * b); `
 
-图5-7展示了reduce操作是如何作用于一个流的：Lambda反复结合每个元素，直到流被归约成一个值。让我们深入研究一下reduce操作是如何对一个数字流求和的。首先，0作为Lambda（a）的第一个参数，从流中获得4作为第二个参数（b）。0 + 4得到4，它成了新的累积值。然后再用累积值和流中下一个元素5调用Lambda，产生新的累积值9。接下来，再用累积值和下一个元素3调用Lambda，得到12。最后，用12和流中最后一个元素9调用Lambda，得到最终结果21。
+图5-7展示了**reduce操作是如何作用于一个流的：Lambda反复结合每个元素，直到流被归约成一个值**。让我们深入研究一下reduce操作是如何对一个数字流求和的。首先，0作为Lambda（a）的第一个参数，从流中获得4作为第二个参数（b）。0 + 4得到4，它成了新的累积值。然后再用累积值和流中下一个元素5调用Lambda，产生新的累积值9。接下来，再用累积值和下一个元素3调用Lambda，得到12。最后，用12和流中最后一个元素9调用Lambda，得到最终结果21。
 
 ![image-20231123113021364](media/images/image-20231123113021364.png)
 
@@ -1560,7 +1558,7 @@ System.out.println(transactionsByCurrencies);
 
 ![image-20231123170107141](media/images/image-20231123170107141.png)
 
-一般来说，Collector会对元素应用一个转换函数（很多时候是不体现任何效果的恒等转换，例如toList），并将结果累积在一个数据结构中，从而产生这一过程的最终输出。例如，在前面所示的交易分组的例子中，转换函数提取了每笔交易的货币，随后使用货币作为键，将交易本身累积在生成的Map中。
+**一般来说，Collector会对元素应用一个转换函数（很多时候是不体现任何效果的恒等转换，例如toList），并将结果累积在一个数据结构中，从而产生这一过程的最终输出**。例如，在前面所示的交易分组的例子中，转换函数提取了每笔交易的货币，随后使用货币作为键，将交易本身累积在生成的Map中。
 
 menu数据：
 
@@ -1714,7 +1712,7 @@ List<Integer> numbers = stream.reduce(
  return l1; });
 ```
 
-这个解决方案有两个问题：一个语义问题和一个实际问题。语义问题在于，reduce方法旨在把两个值结合起来生成一个新值，它是一个不可变的归约。与此相反，collect方法的设计就是要改变容器，从而累积要输出的结果。这意味着，上面的代码片段是在滥用reduce方法，因为它在原地改变了作为累加器的List。你在下一章中会更详细地看到，以错误的语义使用reduce方法还会造成一个实际问题：这个归约过程不能并行工作，因为由多个线程并发修改同一个数据结构可能会破坏List本身。在这种情况下，如果你想要线程安全，就需要每次分配一个新的List，而对象分配又会影响性能。这就是collect方法特别适合表达可变容器上的归约的原因，更关键的是它适合并行操作。
+这个解决方案有两个问题：一个语义问题和一个实际问题。语义问题在于，reduce方法旨在把两个值结合起来生成一个新值，它是一个不可变的归约。与此相反，collect方法的设计就是要改变容器，从而累积要输出的结果。这意味着，上面的代码片段是在滥用reduce方法，因为它在原地改变了作为累加器的List。你在下一章中会更详细地看到，**以错误的语义使用reduce方法还会造成一个实际问题：这个归约过程不能并行工作，因为由多个线程并发修改同一个数据结构可能会破坏List本身**。在这种情况下，如果你想要线程安全，就需要每次分配一个新的List，而对象分配又会影响性能。这就是collect方法特别适合表达可变容器上的归约的原因，更关键的是它适合并行操作。
 
 **1 收集框架的灵活性：以不同的方法执行同样的操作**
 
@@ -1764,7 +1762,7 @@ int totalCalories = menu.stream().mapToInt(Dish::getCalories).sum();
 
 ##### 6.3 分组
 
-一个常见的数据库操作是根据一个或多个属性对集合中的项目进行分组。就像前面讲到按货币对交易进行分组的例子一样，如果用指令式风格来实现的话，这个操作可能会很麻烦、啰嗦而且容易出错。
+**一个常见的数据库操作是根据一个或多个属性对集合中的项目进行分组**。就像前面讲到按货币对交易进行分组的例子一样，如果用指令式风格来实现的话，这个操作可能会很麻烦、啰嗦而且容易出错。
 
 假设你要把菜单中的菜按照类型进行分类，有肉的放一组，有鱼的放一组，其他的都放另一组。用Collectors.groupingBy工厂方法返回的收集器就可以轻松地完成这项任务，如下所示：
 
@@ -1774,11 +1772,11 @@ Map<Dish.Type, List<Dish>> dishesByType =
 // {FISH=[prawns, salmon], OTHER=[french fries, rice, season fruit, pizza], MEAT=[pork, beef, chicken]}
 ```
 
-这里，你给groupingBy方法传递了一个Function（以方法引用的形式），它提取了流中每一道Dish的Dish.Type。我们把这个Function叫作**分类函数**，因为它用来把流中的元素分成不同的组。如图6-4所示，分组操作的结果是一个Map，把分组函数返回的值作为映射的键，把流中所有具有这个分类值的项目的列表作为对应的映射值。在菜单分类的例子中，键就是菜的类型，值就是包含所有对应类型的菜肴的列表。
+这里，你给groupingBy方法传递了一个Function（以方法引用的形式），它提取了流中每一道Dish的Dish.Type。我们把这个Function叫作**分类函数**，**因为它用来把流中的元素分成不同的组**。如图6-4所示，**分组操作的结果是一个Map，把分组函数返回的值作为映射的键，把流中所有具有这个分类值的项目的列表作为对应的映射值**。在菜单分类的例子中，键就是菜的类型，值就是包含所有对应类型的菜肴的列表。
 
 ![image-20231124140212364](media/images/image-20231124140212364.png)
 
-但是，分类函数不一定像方法引用那样可用，因为你想用以分类的条件可能比简单的属性访问器要复杂。例如，你可能想把热量不到400卡路里的菜划分为“低热量”（diet），热量400到700卡路里的菜划为“普通”（normal），高于700卡路里的划为“高热量”（fat）。由于Dish类的作者没有把这个操作写成一个方法，你无法使用方法引用，但你可以把这个逻辑写成Lambda表达式：
+但是，分类函数不一定像方法引用那样可用，因为你想用**以分类的条件可能比简单的属性访问器要复杂**。例如，你可能想把热量不到400卡路里的菜划分为“低热量”（diet），热量400到700卡路里的菜划为“普通”（normal），高于700卡路里的划为“高热量”（fat）。由于Dish类的作者没有把这个操作写成一个方法，你无法使用方法引用，但你可以把这个逻辑写成Lambda表达式：
 
 ```java
 enum CaloricLevel {DIET, NORMAL, FAT}
@@ -1824,7 +1822,7 @@ private static Map<Dish.Type, Map<CaloricLevel, List<Dish>>> groupDishedByTypeAn
 
 ###### 6.3.2 按子组收集数据
 
-在上一节中，我们看到可以把第二个groupingBy收集器传递给外层收集器来实现多级分组。传递给第一个groupingBy的第二个收集器可以是任何类型，而不一定是另一groupingBy。例如，要数一数菜单中每类菜有多少个，可以传递counting收集器作为groupingBy收集器的第二个参数：
+在上一节中，我们看到可以把第二个groupingBy收集器传递给外层收集器来实现多级分组。**传递给第一个groupingBy的第二个收集器可以是任何类型，而不一定是另一groupingBy**。例如，要数一数菜单中每类菜有多少个，可以传递counting收集器作为groupingBy收集器的第二个参数：
 
 ```java
 private static Map<Dish.Type, Long> countDishesInGroups() {
@@ -2089,7 +2087,7 @@ public BiConsumer<List<T>, T> accumulator() {
 3. 对结果容器应用最终转换：finisher方法 
 
 
-在遍历完流后，finisher方法必须返回在累积过程的最后要调用的一个函数，以便将累加器对象转换为整个集合操作的最终结果。通常，就像ToListCollector的情况一样，累加器对象恰好符合预期的最终结果，因此无需进行转换。所以finisher方法只需返回identity函数：
+**在遍历完流后，finisher方法必须返回在累积过程的最后要调用的一个函数，以便将累加器对象转换为整个集合操作的最终结果**。通常，就像ToListCollector的情况一样，累加器对象恰好符合预期的最终结果，因此无需进行转换。所以finisher方法只需返回identity函数：
 
 ```java
 public Function<List<T>, List<T>> finisher() { 
@@ -2103,7 +2101,7 @@ public Function<List<T>, List<T>> finisher() {
 
 4. 合并两个结果容器：combiner方法
 
-combiner方法会返回一个供归约操作使用的函数，它定义了对流的各个子部分进行并行处理时，各个子部分归约所得的累加器要如何合并。对于toList而言，这个方法的实现非常简单，只要把从流的第二个部分收集到的项目列表加到遍历第一部分时得到的列表后面就行了：
+**combiner方法会返回一个供归约操作使用的函数，它定义了对流的各个子部分进行并行处理时，各个子部分归约所得的累加器要如何合并**。对于toList而言，这个方法的实现非常简单，只要把从流的第二个部分收集到的项目列表加到遍历第一部分时得到的列表后面就行了：
 
 ```java
 public BinaryOperator<List<T>> combiner() { 
