@@ -42,6 +42,22 @@ Extra 这个字段中的“Using filesort”表示的就是需要排序，**MySQ
 >
 > Tables are read by accessing index tuples and testing them first to determine whether to read full table rows. In this way, index information is used to defer (“push down”) reading full table rows unless it is necessary. See [Section 8.2.1.5, “Index Condition Pushdown Optimization”](https://dev.mysql.com/doc/refman/5.7/en/index-condition-pushdown-optimization.html). 
 >
+> Index Condition Pushdown (ICP) is an optimization for the case where MySQL retrieves rows from a table using an index. Without ICP, the storage engine traverses the index to locate rows in the base table and returns them to the MySQL server which evaluates the `WHERE` condition for the rows. With ICP enabled, and if parts of the `WHERE` condition can be evaluated by using only columns from the index, the MySQL server pushes this part of the `WHERE` condition down to the storage engine. The storage engine then evaluates the pushed index condition by using the index entry and only if this is satisfied is the row read from the table. ICP can reduce the number of times the storage engine must access the base table and the number of times the MySQL server must access the storage engine.
+>
+> 索引条件下推(Index Condition Pushdown, ICP)是针对MySQL使用索引从表中检索行的情况进行的优化。如果没有ICP，存储引擎遍历索引来定位基表中的行，并将它们返回给MySQL服务器，MySQL服务器计算行的WHERE条件。在启用ICP的情况下，如果WHERE条件的一部分可以通过仅使用索引中的列来求值，MySQL服务器将把WHERE条件的这一部分下推到存储引擎。然后，存储引擎通过使用索引条目来计算推入的索引条件，并且只有在满足条件时才从表中读取行。ICP可以减少存储引擎访问基本表的次数，也可以减少MySQL服务器访问存储引擎的次数。
+>
+> To understand how this optimization works, first consider how an index scan proceeds when Index Condition Pushdown is not used:
+>
+> 1. Get the next row, first by reading the index tuple, and then by using the index tuple to locate and read the full table row.
+> 2. Test the part of the `WHERE` condition that applies to this table. Accept or reject the row based on the test result.
+>
+> Using Index Condition Pushdown, the scan proceeds like this instead:
+>
+> 1. Get the next row's index tuple (but not the full table row).
+> 2. Test the part of the `WHERE` condition that applies to this table and can be checked using only index columns. If the condition is not satisfied, proceed to the index tuple for the next row.
+> 3. If the condition is satisfied, use the index tuple to locate and read the full table row.
+> 4. Test the remaining part of the `WHERE` condition that applies to this table. Accept or reject the row based on the test result.
+>
 > `Using filesort` (JSON property: `using_filesort`)
 >
 > MySQL must do an extra pass to find out how to retrieve the rows in sorted order. The sort is done by going through all rows according to the join type and storing the sort key and pointer to the row for all rows that match the `WHERE` clause. The keys then are sorted and the rows are retrieved in sorted order. See [Section 8.2.1.14, “ORDER BY Optimization”](https://dev.mysql.com/doc/refman/5.7/en/order-by-optimization.html).

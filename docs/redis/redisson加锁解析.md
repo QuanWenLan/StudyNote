@@ -6,6 +6,8 @@
 
 https://cloud.tencent.com/developer/article/2107355
 
+[Redisson源码研究（包括底层Netty、Promise实现）](https://blog.csdn.net/qq_42875345/article/details/134874240)
+
 ### 分布式锁对比
 
 | 分类                              | 方案                                                         | 实现原理                                                     | 优点                                                         | 缺点                                                         |

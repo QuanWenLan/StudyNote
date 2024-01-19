@@ -171,7 +171,7 @@ DELETE FROM undo_demo WHERE id = 1;
 
 - 在对记录做 delete mark 操作时，记录的 trx_id 隐藏列的值是 100 （也就是说对该记录最近的一次修改就发生在本事务中），所以把 100 填入 old trx_id 属性中。然后把记录的 roll_pointer 隐藏列的值取出来，填入 old roll_pointer 属性中，这样就可以通过 old roll_pointer 属性值找到最近一次对该记录做改动时产生的 undo日志 。
 
-- 由于 undo_demo 表中有2个索引：一个是聚簇索引，一个是二级索引 idx_key1 。只要是包含在索引中的列，那么这个列在记录中的位置（ pos ），占用存储空间大小（ len ）和实际值（ value ）就需要存储到undo日志 中。
+- 由于 undo_demo 表中有2个索引：一个是聚簇索引，一个是二级索引 idx_key1 。只要是包含在索引中的列，那么这个列在记录中的位置（ pos ），占用存储空间大小（ len ）和实际值（ value ）就需要存储到undo日志中。
 
   - 对于主键来说，只包含一个 id 列，存储到 undo日志 中的相关信息分别是：
 

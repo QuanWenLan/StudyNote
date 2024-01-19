@@ -390,7 +390,7 @@ EXPLAIN SELECT key_part2 FROM single_table s1 WHERE key_part3 = 'a';
 
 #### possible_keys和key
 
- possible_keys 列表示在某个查询语句中，对某个表执行单表查询时可能用到的索引有哪些， key 列表示实际用到的索引有哪些。
+possible_keys 列表示在某个查询语句中，对某个表执行单表查询时可能用到的索引有哪些， key 列表示实际用到的索引有哪些。
 
 ![image-20230905105636492](media/images/image-20230905105636492.png)
 
@@ -576,6 +576,8 @@ EXPLAIN SELECT key_part2 FROM single_table WHERE key_part1 ='ab1c';
 ```
 
 ##### Using index condition
+
+###### 索引下推
 
 有些搜索条件中虽然出现了索引列，但却不能使用到索引，比如下边这个查询：
 
@@ -854,6 +856,6 @@ SHOW WARNINGS;
 
 我这里warning没有信息，可惜。
 
-我们最常见的就是 Code 为 1003 的信息，当 Code 值为 1003 时， Message 字段展示的信息**类似于**查询优化器将我们的查询语句重写后的语句。比如我们上边的查询本来是一个左（外）连接查询，但是有一个 s2.common_field IS NOT NULL的条件，着就会导致查询优化器把左（外）连接查询优化为内连接查询，从 SHOW WARNINGS 的 Message 字段也可以看出来，原本的 LEFT JOIN 已经变成了 JOIN 。
+我们最常见的就是 Code 为 1003 的信息，当 Code 值为 1003 时，Message 字段展示的信息**类似于**查询优化器将我们的查询语句重写后的语句。比如我们上边的查询本来是一个左（外）连接查询，但是有一个 s2.common_field IS NOT NULL的条件，着就会导致查询优化器把左（外）连接查询优化为内连接查询，从 SHOW WARNINGS 的 Message 字段也可以看出来，原本的 LEFT JOIN 已经变成了 JOIN 。
 
 但是大家一定要注意，我们说 Message 字段展示的信息**类似于**查询优化器将我们的查询语句重写后的语句，并不是等价于，也就是说 Message 字段展示的信息并不是标准的查询语句，在很多情况下并不能直接拿到黑框框中运行，它只能作为帮助我们理解查 MySQL 将如何执行查询语句的一个参考依据而已。

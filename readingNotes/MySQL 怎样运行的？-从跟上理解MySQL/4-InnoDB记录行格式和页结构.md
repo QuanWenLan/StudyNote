@@ -21,7 +21,8 @@ ALTER TABLE 表名 ROW_FORMAT=行格式名称
 比如我们在 xiaohaizi 数据库里创建一个演示用的表 record_format_demo ，可以这样指定它的 行格式 ：
 
 ```mysql 
-mysql> USE xiaohaizi; Database changed
+mysql> USE xiaohaizi;
+Database changed
 mysql> CREATE TABLE record_format_demo ( 
     ->c1 VARCHAR(10),
 	->c2 VARCHAR(10) NOT NULL, 

@@ -1,5 +1,3 @@
-
-
 ### 24 事务的级别与MVCC
 
 #### 1 准备工作 
@@ -128,7 +126,7 @@ SELECT @@transaction_isolation;
 
 ![image-20220121111737535](media/images/image-20220121111737535.png)
 
-> 实际上insert undo只在事务回滚时起作用，**当事务提交后，该类型的undo日志就没用了，它占用的Undo Log Segment也会被系统回收**（也就是该undo日志占用的Undo页面链表要么被重用，要么被释放）。虽然真正的insert undo日志占用的存储空间被释放了，但是roll_pointer的值并不会被清除，roll_pointer属性占用7个字节，第一个比特位就标记着它指向的undo日志的类型，如果该比特位的值为1时，就代表着它zhi向的undo日志类型为insert undo。所以我们之后在画图时都会把insert undo给去掉，大家留意一下就好了。
+> 实际上insert undo只在事务回滚时起作用，**当事务提交后，该类型的undo日志就没用了，它占用的Undo Log Segment也会被系统回收**（也就是该undo日志占用的Undo页面链表要么被重用，要么被释放）。虽然真正的insert undo日志占用的存储空间被释放了，但是roll_pointer的值并不会被清除，roll_pointer属性占用7个字节，第一个比特位就标记着它指向的undo日志的类型，如果该比特位的值为1时，就代表着它指向的undo日志类型为insert undo。所以我们之后在画图时都会把insert undo给去掉，大家留意一下就好了。
 
 假设之后两个 事务id 分别为 100 、 200 的事务对这条记录进行 UPDATE 操作，操作流程如下：
 

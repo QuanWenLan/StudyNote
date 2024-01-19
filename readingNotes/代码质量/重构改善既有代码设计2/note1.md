@@ -287,5 +287,208 @@ export function setDefaultOwner(arg) {defaultOwnerData = arg;}
 
 #### 变量改名
 
+#### 引入参数对象
 
+```javascript
+function amountInvoiced(startDate, endDate) {...} 
+function amountReceived(startDate, endDate) {...} 
+function amountOverdue(startDate, endDate) {...}
+// after
+function amountInvoiced(aDateRange) {...} 
+function amountReceived(aDateRange) {...} 
+function amountOverdue(aDateRange) {...}
+```
 
+**一组数据项总是结伴同行，出没于一个又一个函数**。这样一组数据就是所谓的数据泥团，我喜欢代之以一个数据结构。
+
+#### 函数组合成类
+
+主要是类似于Java中的组合类的使用。
+
+```javascript
+function base(aReading) {...}
+function taxableCharge(aReading) {...} 
+function calculateBaseCharge(aReading) {...}
+```
+
+重构后
+
+```javascript
+class Reading { 
+  base() {...}
+  taxableCharge() {...} 
+  calculateBaseCharge() {...}
+}
+```
+
+**如果发现一组函数形影不离地操作同一块数据**（通常是将这块数据作为参数传递给函数），我就认为，是时候组建一个类了。
+
+##### 做法
+
+- 运用封装记录（162）对多个函数共用的数据记录加以封装。
+- 对于使用该记录结构的每个函数，运用搬移函数（198）将其移入新类。
+
+- 用以处理该数据记录的逻辑可以用提炼函数（106）提炼出来，并移入新类。
+
+##### 范例
+
+每个月会有软件读取茶水计量器的数据，得到类似这样的读数（reading）：
+
+reading = {customer: "ivan", quantity: 10, month: 5, year: 2017};
+
+###### 客户端1
+
+```javascript
+const aReading = acquireReading();
+const baseCharge = baseRate(aReading.month, aReading.year) * aReading.quantity;
+```
+
+###### 客户端2
+
+```javascript
+const aReading = acquireReading();
+const base = (baseRate(aReading.month, aReading.year) * aReading.quantity); 
+const taxableCharge = Math.max(0, base - taxThreshold(aReading.year));
+```
+
+计算基础费用的公式被重复了两遍。
+
+###### 客户端3
+
+```javascript
+const aReading = acquireReading();
+const basicChargeAmount = calculateBaseCharge(aReading);
+
+function calculateBaseCharge(aReading) {
+  return baseRate(aReading.month, aReading.year) * aReading.quantity;
+}
+```
+
+看到这里，我有一种自然的冲动，想把前面两处客户端代码都改为使用这个函数。但这样一个顶层函数的问题在于，它通常位于一个文件中，读者不一定能想到来这里寻找它。我更愿意对代码多做些修改，让该函数与其处理的数据在空间上有更紧密的联系。为此目的，不妨把数据本身变成一个类。
+
+```javascript
+class Reading {
+　constructor(data) {
+　　this._customer = data.customer;
+　　this._quantity = data.quantity;
+   this._month = data.month;
+　　this._year = data.year;
+　}
+　get customer() {return this._customer;}
+　get quantity() {return this._quantity;}
+　get month()    {return this._month;}
+　get year()     {return this._year;}
+}
+```
+
+首先，我想把手上已有的函数calculateBaseCharge搬到新建的Reading类中。一得到原始的读数数据，我就用Reading类将它包装起来，然后就可以在函数中使用Reading类了。
+
+客户端3
+
+```javascript
+const rawReading = acquireReading(); 
+const aReading = new Reading(rawReading);
+const basicChargeAmount = calculateBaseCharge(aReading);
+```
+
+然后我用搬移函数（198）把calculateBaseCharge搬到新类中。
+
+class Reading
+
+```javascript
+get calculateBaseCharge() {
+  return baseRate(this.month, this.year) * this.quantity;
+}
+```
+
+客户端3
+
+```javascript
+const rawReading = acquireReading(); 
+const aReading = new Reading(rawReading);
+const basicChargeAmount = aReading.calculateBaseCharge;
+```
+
+然后改名
+
+```javascript
+get baseCharge() {
+  return baseRate(this.month, this.year) * this.quantity;
+}
+// 调用
+const rawReading = acquireReading(); 
+const aReading = new Reading(rawReading);
+const basicChargeAmount = aReading.baseCharge;
+```
+
+客户端1
+
+```javascript
+const rawReading = acquireReading(); 
+const aReading = new Reading(rawReading);
+const baseCharge = aReading.baseCharge;
+```
+
+客户端2的计算提炼成函数移到Reading中
+
+```javascript
+function taxableChargeFn(aReading) {
+  return Math.max(0, aReading.baseCharge - taxThreshold(aReading.year));
+}
+```
+
+客户端2
+
+```javascript
+const rawReading = acquireReading(); 
+const aReading = new Reading(rawReading);
+const taxableCharge = aReading.taxableCharge;
+```
+
+#### 函数组合变换
+
+```javascript
+function base(aReading) {...}
+function taxableCharge(aReading) {...}
+// after
+
+function enrichReading(argReading) {
+  const aReading = _.cloneDeep(argReading);
+  aReading.baseCharge = base(aReading);
+  aReading.taxableCharge = taxableCharge(aReading);
+  return aReading;
+}
+```
+
+在软件中，经常需要把数据“喂”给一个程序，让它再计算出各种派生信息。这些派生数值可能会在几个不同地方用到，因此这些计算逻辑也常会在用到派生数据的地方重复。我更愿意把所有计算派生数据的逻辑收拢到一处，这样始终可以在固定的地方找到和更新这些逻辑，避免到处重复。
+
+也就是构造数据最好是放一块构造，有一个具体的builder方法。
+
+一个方式是采用数据变换（transform）函数：这种函数接受源数据作为输入，计算出所有的派生数据，将派生数据以字段形式填入输出数据。有了变换函数，我就始终只需要到变换函数中去检查计算派生数据的逻辑。
+
+#### 拆分函数内部代码为多个函数
+
+```javascript
+const orderData = orderString.split(/\s+/);
+const productPrice = priceList[orderData[0].split("-")[1]]; 
+const orderPrice = parseInt(orderData[1]) * productPrice;
+
+// after
+const orderRecord = parseOrder(order);
+const orderPrice = price(orderRecord, priceList);
+
+function parseOrder(aString) {
+　const values = aString.split(/\s+/); 
+　return ({
+　　productID: values[0].split("-")[1], 
+　　quantity: parseInt(values[1]),
+　});
+}
+function price(order, priceList) {
+　return order.quantity * priceList[order.productID];
+}
+```
+
+**每当看见一段代码在同时处理两件不同的事，我就想把它拆分成各自独立的模块**，因为这样到了需要修改的时候，我就可以单独处理每个主题，而不必同时在脑子里考虑两个不同的主题。
+
+编译器的任务很直观：接受文本（用某种编程语言编写的代码）作为输入，将其转换成某种可执行的格式（例如针对某种特定硬件的目标码）。随着经验加深，我们发现把这项大任务拆分成一系列阶段会很有帮助：首先对文本做词法分析，然后把token解析成语法树，然后再对语法树做几步转换（如优化），最后生成目标码。每一步都有边界明确的范围，我可以聚焦思考其中一步，而不用理解其他步骤的细节。
