@@ -556,13 +556,37 @@ public void afterReturning() {
 }
 ```
 
-
+##### 执行顺序
 
 ![image-20230328122342720](media/images/image-20230328122342720.png)
+
+如果有异常的话，@AfterThrowing，执行顺序发生改变。
+
+> @Around 方法 before
+>
+> @Before beforeTest
+>
+> 1,xiaoming
+>
+> @After afterTest
+>
+> @AfterThrowing 方法
 
 上面是spring的5.2.4.RELEASE版本，下面是5.2.7.RELEASE的版本，执行顺序发生了改变。
 
 ![image-20230328122152121](media/images/image-20230328122152121.png)
+
+如果发生异常
+
+> @Around 方法 before
+>
+> @Before beforeTest
+>
+> 1,xiaoming
+>
+> @AfterThrowing 方法
+>
+> @After afterTest
 
 ###### 10 返回到AspectJAfterThrowingAdvice
 
