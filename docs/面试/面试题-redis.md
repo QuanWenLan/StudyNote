@@ -299,7 +299,9 @@ memcached：非阻塞的IO，并且是多路复用。多线程。
 
 
 
-### 其他
+### 其他面试题
+
+可以学习参考下这个 [小林coding-Redis 常见面试题](https://www.xiaolincoding.com/redis/base/redis_interview.html)
 
 #### Redis 6.0 之前为什么一直不使用多线程？
 
@@ -391,7 +393,7 @@ A、B、C节点集群，B节点失败（主故障，没有替代方案）整个�
 
 
 
-[P2 秒杀抢购超卖Bug实战重现 14:26 (bilibili.com)](https://www.bilibili.com/video/BV1rC4y127Np?p=2)
+[P2 秒杀抢购超卖Bug实战重现(bilibili.com)](https://www.bilibili.com/video/BV1rC4y127Np?p=2)
 
 #### 秒杀抢购超卖bug
 

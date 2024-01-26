@@ -72,3 +72,13 @@ FileSystemProvider 实现类
 ![image-20231016155215734](media/images/image-20231016155215734.png)
 
 第二种方法是底层是**用本地技术实现的用户态拷贝**。
+
+
+
+#### 零拷贝技术
+
+#### IO多路复用：select/poll/epoll
+
+#### Reactor 和 Proactor
+
+参考： https://www.xiaolincoding.com/os/8_network_system/zero_copy.html

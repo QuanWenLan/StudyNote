@@ -60,7 +60,6 @@
 我在[第 15 篇答疑文章](./15答疑文章-日志和索引相关问题.md)中，和你提到过 binlog 有两种格式，**一种是 statement，一种是 row**。可能你在其他资料上还会看到有**第三种格式，叫作 mixed**，其实它就是前两种格式的混合。  
 
 ```mysql
-
 mysql> CREATE TABLE `t` (
   `id` int(11) NOT NULL,
   `a` int(11) DEFAULT NULL,
@@ -186,7 +185,6 @@ mysqlbinlog  -vv data/master.000001 --start-position=8900;
 虽然 mixed 格式的 binlog 现在已经用得不多了，但这里我还是要再借用一下 mixed 格式来说明一个问题，来看一下这条 SQL 语句：
 
 ```mysql 
-
 mysql> insert into t values(10,10, now());
 ```
 

@@ -74,3 +74,7 @@
 
 不过，需要注意的是，即使你的应用场景中部署了不同的操作系统，多路复用机制也是适用的。因为这个机制的实现有很多种，既有**基于 Linux 系统下的 select 和 epoll 实现**，也有**基于 FreeBSD 的 kqueue 实现**，以及**基于 Solaris 的 evport 实现**，这样，你可以根据Redis 实际运行的操作系统，选择相应的多路复用实现。  
 
+#### 具体的关于redis的io多路复用的实例
+
+[为什么单线程的 Redis 如何做到每秒数万 QPS ？](https://mp.weixin.qq.com/s/oeOfsgF-9IOoT5eQt5ieyw)
+

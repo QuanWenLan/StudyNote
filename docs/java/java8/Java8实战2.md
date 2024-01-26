@@ -1001,6 +1001,484 @@ after filter: 22
 after limit: 22
 ```
 
-#### Optional 
+#### 9 默认方法
+
+比如，你可以为你的API创建不同的发布版本，同时维护老版本和新版本，但这是非常费时费力的，原因如下。其一，这增加了你作为类库的设计者维护类库的复杂度。其次，类库的用户不得不同时使用一套代码的两个版本，而这会增大内存的消耗，延长程序的载入时间，因为这种方式下项目使用的类文件数量更多了。 
+
+这就是默认方法试图解决的问题。它让类库的设计者放心地改进应用程序接口，无需担忧对遗留代码的影响，这是因为实现更新接口的类现在会自动继承一个默认的方法实现。 
+
+> 不同类型的兼容性：二进制、源代码和函数行为
+>
+> 变更对Java程序的影响大体可以分成三种类型的兼容性，分别是：二进制级的兼容、源代码级的兼容，以及函数行为的兼容。刚才我们看到，向接口添加新方法是二进制级的兼容，但最终编译实现接口的类时却会发生编译错误。
+>
+> 二进制级的兼容性表示现有的二进制执行文件能无缝持续链接（包括验证、准备和解析）和运行。比如，为接口添加一个方法就是二进制级的兼容，这种方式下，如果新添加的方法不被调用，接口已经实现的方法可以继续运行，不会出现错误。
+>
+> 简单地说，源代码级的兼容性表示引入变化之后，现有的程序依然能成功编译通过。比如，向接口添加新的方法就不是源码级的兼容，因为遗留代码并没有实现新引入的方法，所以它们无法顺利通过编译。 
+>
+> 最后，函数行为的兼容性表示变更发生之后，程序接受同样的输入能得到同样的结果。比如，为接口添加新的方法就是函数行为兼容的，因为新添加的方法在程序中并未被调用（抑或该接口在实现中被覆盖了）。 
+
+默认方法是Java 8中引入的一个新特性，希望能借此以兼容的方式改进API。现在，接口包含的方法签名在它的实现类中也可以不提供实现。那么，谁来具体实现这些方法呢？实际上，缺失的方法实现会作为接口的一部分由实现类继承（所以命名为默认实现），而无需由实现类提供。
+
+那么，我们该如何辨识哪些是默认方法呢？其实非常简单。默认方法由default修饰符修饰，并像类中声明的其他方法一样包含方法体。比如，你可以像下面这样在集合库中定义一个名为Sized的接口，在其中定义一个抽象方法size，以及一个默认方法isEmpty： 
+
+```java
+public interface Sized { 
+    int size(); 
+    default boolean isEmpty() {  
+        return size() == 0; 
+    } 
+} 
+```
+
+这样任何一个实现了Sized接口的类都会自动继承isEmpty的实现。因此，向提供了默认实现的接口添加方法就不是源码兼容的。 
+
+现在，我们回顾一下最初的例子，那个Java画图类库和你的游戏程序。具体来说，为了以兼容的方式改进这个库（即使用该库的用户不需要修改他们实现了Resizable的类），可以使用默认方法，提供setRelativeSize的默认实现：
+
+```java
+default void setRelativeSize(int wFactor, int hFactor){ 
+    setAbsoluteSize(getWidth() / wFactor, getHeight() / hFactor); 
+} 
+```
+
+#####  使用模式
+
+###### 可选方法
+
+你很可能也碰到过这种情况，类实现了接口，不过却刻意地将一些方法的实现留白。Iterator接口就为remove方法提供了一个默认实现，如下所示： 
+
+```java
+interface Iterator<T> { 
+    boolean hasNext(); 
+    T next(); 
+    default void remove() { 
+        throw new UnsupportedOperationException(); 
+    } 
+}
+```
+
+通过这种方式，你可以减少无效的模板代码。实现Iterator接口的每一个类都不需要再声明一个空的remove方法了，因为它现在已经有一个默认的实现。 
+
+###### 行为的多继承
+
+默认方法让之前无法想象的事儿以一种优雅的方式得以实现，即行为的多继承。这是一种让类从多个来源重用代码的能力，如图9-3所示。 
+
+![image-20240123165123911](media/images/image-20240123165123911.png)
+
+Java的类只能继承单一的类，但是一个类可以实现多接口。要确认也很简单，下面是Java API中对ArrayList类的定义： 
+
+```java
+public class ArrayList<E> extends AbstractList<E>  
+    implements List<E>, RandomAccess, Cloneable, 
+               Serializable, Iterable<E>, Collection<E> {  
+}
+```
+
+1类型的多继承 
+这个例子中ArrayList继承了一个类，实现了六个接口。因此ArrayList实际是七个类型的直接子类，分别是：AbstractList、List、RandomAccess、Cloneable、Serializable、Iterable和Collection。所以，在某种程度上，我们早就有了类型的多继承。 
+
+由于Java 8中接口方法可以包含实现，类可以从多个接口中继承它们的行为（即实现的代码）。让我们从一个例子入手，看看如何充分利用这种能力来为我们服务。保持接口的精致性和正交性能帮助你在现有的代码基上最大程度地实现代码复用和行为组合。 
+
+2 利用正交方法的精简接口 
+假设你需要为你正在创建的游戏定义多个具有不同特质的形状。有的形状需要调整大小，但是不需要有旋转的功能；有的需要能旋转和移动，但是不需要调整大小。这种情况下，你怎么设计才能尽可能地重用代码？ 你可以定义一个单独的Rotatable接口，并提供两个抽象方法setRotationAngle和getRotationAngle，如下所示：
+
+```java
+public interface Rotatable { 
+    void setRotationAngle(int angleInDegrees); 
+    int getRotationAngle(); 
+    default void rotateBy(int angleInDegrees){   
+        setRotationAngle((getRotationAngle () + angle) % 360); 
+    } 
+} 
+```
+
+这种方式和模板设计模式有些相似，都是以其他方法需要实现的方法定义好框架算法。 
+
+现在，实现了Rotatable的所有类都需要提供setRotationAngle和getRotationAngle的实现，但与此同时它们也会天然地继承rotateBy的默认实现。 
+
+类似地，你可以定义之前看到的两个接口Moveable和Resizable。它们都包含了默认实现。下面是Moveable的代码：
+
+```java
+public interface Moveable { 
+    int getX(); 
+    int getY(); 
+    void setX(int x); 
+    void setY(int y); 
+ 
+    default void moveHorizontally(int distance){ 
+        setX(getX() + distance); 
+    } 
+ 
+    default void moveVertically(int distance){ 
+        setY(getY() + distance); 
+    } 
+} 
+
+public interface Resizable { 
+    int getWidth(); 
+    int getHeight(); 
+    void setWidth(int width); 
+    void setHeight(int height); 
+    void setAbsoluteSize(int width, int height); 
+ 
+    default void setRelativeSize(int wFactor, int hFactor){ 
+        setAbsoluteSize(getWidth() / wFactor, getHeight() / hFactor); 
+    } 
+} 
+```
+
+3 组合接口
+
+通过组合这些接口，你现在可以为你的游戏创建不同的实体类。比如，Monster可以移动、旋转和缩放。 
+
+```java
+public class Monster implements Rotatable, Moveable, Resizable { 
+… // 需要给出所有抽象方法的实现，但无需重复实现
+} 
+```
+
+Monster类会自动继承Rotatable、Moveable和Resizable接口的默认方法。这个例子中，retateBy
+方法的一个默认实现，Monster继承了rotateBy、moveHorizontally、moveVertically和setRelativeSize的实现。
+
+```java
+Monster m = new Monster(); // 构造函数会设置Monster的坐标、高度、宽度及默认仰角 
+m.rotateBy(180);  // 调用由Rotatable中继承而来的rotateBy
+m.moveVertically(10); // 调用由Moveable中继承而来的moveVertically 
+```
+
+假设你现在需要声明另一个类，它要能移动和旋转，但是不能缩放，比如说Sun。这时也无需复制粘贴代码，你可以像下面这样复用Moveable和Rotatable接口的默认实现。图9-4是这一场景的UML图表。
+
+```java
+public class Sun implements Moveable, Rotatable { 
+…  
+}
+```
+
+##### 解决冲突的规则
+
+如果一个类同时实现了两个接口，这两个接口恰巧又提供了同样的默认方法签名，这时会发生什么情况？类会选择使用哪一个方法？这些问题，我们会在接下来的一节进行讨论。
+
+注意，接下来的例子主要用于说明容易出问题的场景，并不表示这些场景在实际开发过程中会经常发生。
+
+```java
+public interface A { 
+    default void hello() { 
+        System.out.println("Hello from A"); 
+    } 
+} 
+public interface B extends A { 
+    default void hello() { 
+        System.out.println("Hello from B"); 
+    } 
+} 
+public class C implements B, A { 
+    public static void main(String... args) { 
+        new C().hello(); 
+    } 
+}
+```
+
+###### 解决问题的三条规则
+
+(1) 类中的方法优先级最高。类或父类中声明的方法的优先级高于任何声明为默认方法的优先级。 
+
+(2) 如果无法依据第一条进行判断，那么子接口的优先级更高：函数签名相同时，优先选择拥有最具体实现的默认方法的接口，即如果B继承了A，那么B就比A更加具体。 
+
+(3) 最后，如果还是无法判断，继承了多个接口的类必须通过显式覆盖和调用期望的方法，显式地选择使用哪一个默认方法的实现。 
+
+###### 选择提供了最具体实现的默认方法的接口
+
+编译器会使用声明的哪一个hello方法呢？按照规则(2)，应该选择的是提供了最具体实现的默认方法的接口。由于B比A更具体，所以应该选择B的hello方法。所以，程序会打印输出“Hello from B”。 
+
+现在，我们看看如果C像下面这样（如图9-6所示）继承自D，会发生什么情况： 
+
+```java
+public class D implements A{ } 
+ 
+public class C extends D implements B, A { 
+    public static void main(String... args) { 
+        new C().hello(); 
+    } 
+}
+```
+
+![image-20240123170149066](media/images/image-20240123170149066.png)
+
+依据规则(1)，类中声明的方法具有更高的优先级。D并未覆盖hello方法，可是它实现了接口A。所以它就拥有了接口A的默认方法。规则(2)说如果类或者父类没有对应的方法，那么就应该选择提供了最具体实现的接口中的方法。因此，编译器会在接口A和接口B的hello方法之间做选择。由于B更加具体，所以程序会再次打印输出“Hello from B”。
+
+###### 冲突及如何显式地消除歧义
+
+到目前为止，你看到的这些例子都能够应用前两条判断规则解决。让我们更进一步，假设B不再继承A：
+
+```java
+public interface A { 
+    void hello() { 
+        System.out.println("Hello from A"); 
+    } 
+} 
+ 
+public interface B { 
+    void hello() { 
+        System.out.println("Hello from B"); 
+    } 
+} 
+ 
+public class C implements B, A { } 
+```
+
+这时规则(2)就无法进行判断了，因为从编译器的角度看没有哪一个接口的实现更加具体，两个都差不多。A接口和B接口的hello方法都是有效的选项。所以，Java编译器这时就会抛出一个编译错误，因为它无法判断哪一个方法更合适：“Error: class C inherits unrelated defaults for hello() from types B and A.” 
+
+解决这种两个可能的有效方法之间的冲突，没有太多方案；你只能显式地决定你希望在C中使用哪一个方法。为了达到这个目的，你可以覆盖类C中的hello方法，在它的方法体内显式地调用你希望调用的方法。Java 8中引入了一种新的语法X.super.m(…)，其中X是你希望调用的m方法所在的父接口。举例来说，如果你希望C使用来自于B的默认方法，它的调用方式看起来就如下所示： 
+
+```java
+public class C implements B, A { 
+    void hello(){ 
+        B.super.hello(); 
+    } 
+}
+```
+
+###### 菱形继承问题
+
+让我们考虑最后一种场景，它亦是C++里中最令人头痛的难题：
+
+```java
+public interface A{ 
+    default void hello(){ 
+        System.out.println("Hello from A"); 
+    } 
+} 
+ 
+public interface B extends A { } 
+ 
+public interface C extends A { } 
+ 
+public class D implements B, C { 
+    public static void main(String... args) { 
+        new D().hello(); 
+    } 
+}
+```
+
+图9-8以UML图的方式描述了出现这种问题的场景。这种问题叫“菱形问题”，因为类的继承关系图形状像菱形。这种情况下类D中的默认方法到底继承自什么地方 ——源自B的默认方法，还是源自C的默认方法？实际上只有一个方法声明可以选择。只有A声明了一个默认方法。由于这个接口是D的父接口，代码会打印输出“Hello from A”。 
+
+![image-20240123170658875](media/images/image-20240123170658875.png)
+
+现在，我们看看另一种情况，如果B中也提供了一个默认的hello方法，并且函数签名跟A中的方法也完全一致，这时会发生什么情况呢？根据规则(2)，编译器会选择提供了更具体实现的接口中的方法。由于B比A更加具体，所以编译器会选择B中声明的默认方法。如果B和C都使用相同的函数签名声明了hello方法，就会出现冲突，正如我们之前所介绍的，你需要显式地指定使用哪个方法。 
+
+顺便提一句，如果你在C接口中添加一个抽象的hello方法（这次添加的不是一个默认方法），会发生什么情况呢？你可能也想知道答案。 
+
+```java
+public interface C extends A { 
+    void hello(); 
+}
+```
+
+这个新添加到C接口中的抽象方法hello比由接口A继承而来的hello方法拥有更高的优先级，因为C接口更加具体。因此，类D现在需要为hello显式地添加实现，否则该程序无法通过编译。 
+
+#### 10 用 Optional 取代null 
 
 [Java 8 的 Optional是个好东西，但你真的用对了吗？](https://blog.csdn.net/qq_34162294/article/details/121134135)
+
+
+
+#### 11 CompletableFuture：组合式异步编程 
+
+另一个文件中有学习
+
+#### 12 新的日期和时间API
+
+##### 机器的日期和时间格式
+
+从计算机的角度来看，建模时间最自然的格式是表示一个持续时间段上某个点的单一大整型数。这也是新的java.time.Instant类对时间建模的方式，基本上它是以Unix元年时间（传统的设定为UTC时区1970年1月1日午夜时分）开始所经历的秒数进行计算。 
+
+你可以通过向静态工厂方法ofEpochSecond传递一个代表秒数的值创建一个该类的实例。静态工厂方法ofEpochSecond还有一个增强的重载版本，它接收第二个以纳秒为单位的参数值，对传入作为秒数的参数进行调整。这意味着下面这些对ofEpochSecond工厂方法的调用会返回几乎同样的Instant对象：
+
+```java
+Instant.ofEpochSecond(3);  
+Instant.ofEpochSecond(3, 0);  
+Instant.ofEpochSecond(2, 1_000_000_000); 
+Instant.ofEpochSecond(4, -1_000_000_000); 
+```
+
+Instant的设计初衷是为了便于机器使用。它包含的是由秒及纳秒所构成的数字。所以，它
+无法处理那些我们非常容易理解的时间单位。比如下面这段语句： 
+int day = Instant.now().get(ChronoField.DAY_OF_MONTH)
+
+它会抛出下面这样的异常： 
+java.time.temporal.UnsupportedTemporalTypeException: Unsupported field: DayOfMonth 
+
+但是你可以通过Duration和Period类使用Instant
+
+###### 定义 Duration或 Period
+
+目前为止，你看到的所有类都实现了Temporal接口，Temporal接口定义了如何读取和操纵为时间建模的对象的值。我们需要创建两个Temporal对象之间的duration。Duration类的静态工厂方法between就是为这个目的而设计的。你可以创建两个LocalTimes对象、两个LocalDateTimes对象，或者两个Instant对象之间的duration，如下所示：
+
+```java
+Duration d1 = Duration.between(time1, time2); 
+Duration d1 = Duration.between(dateTime1, dateTime2); 
+Duration d2 = Duration.between(instant1, instant2); 
+```
+
+**由于LocalDateTime和Instant是为不同的目的而设计的，一个是为了便于人阅读使用，另一个是为了便于机器处理**，所以你不能将二者混用。如果你试图在这两类对象之间创建duration，会触发一个DateTimeException异常。此外，由于Duration类主要用于以秒和纳秒衡量时间的长短，你不能仅向between方法传递一个LocalDate对象做参数。 
+
+如果你需要以年、月或者日的方式对多个时间单位建模，可以使用Period类。使用该类的工厂方法between，你可以使用得到两个LocalDate之间的时长，如下所示： 
+
+```java
+Period tenDays = Period.between(LocalDate.of(2014, 3, 8), 
+                                LocalDate.of(2014, 3, 18)); 
+```
+
+创建Duration和Period对象 
+
+```java
+Duration threeMinutes = Duration.ofMinutes(3); 
+Duration threeMinutes = Duration.of(3, ChronoUnit.MINUTES); 
+ 
+Period tenDays = Period.ofDays(10); 
+Period threeWeeks = Period.ofWeeks(3); 
+Period twoYearsSixMonthsOneDay = Period.of(2, 6, 1)
+```
+
+![image-20240124102341835](media/images/image-20240124102341835.png)![image-20240124102355365](media/images/image-20240124102355365.png)
+
+截至目前，我们介绍的这些日期时间对象都是不可修改的，这是为了更好地支持函数式编程，确保线程安全，保持领域模式一致性而做出的重大设计决定。当然，新的日期和时间API也提供了一些便利的方法来创建这些对象的可变版本。比如，你可能希望在已有的LocalDate实例上增加3天。
+
+##### 操纵、解析和格式化日期 
+
+如果你已经有一个LocalDate对象，想要创建它的一个修改版，最直接也最简单的方法是使用withAttribute方法。withAttribute方法会创建对象的一个副本，并按照需要修改它的属性。注意，**下面的这段代码中所有的方法都返回一个修改了属性的对象**。**它们都不会修改原来的对象**！ 
+
+代码清单12-6 以比较直观的方式操纵LocalDate的属性 
+
+```java
+LocalDate date1 = LocalDate.of(2014, 3, 18); 
+LocalDate date2 = date1.withYear(2011);  // 2011-03-18
+LocalDate date3 = date2.withDayOfMonth(25);  // 2011-03-25
+LocalDate date4 = date3.with(ChronoField.MONTH_OF_YEAR, 9);  // 2011-09-25
+```
+
+代码清单12-7 以相对方式修改LocalDate对象的属性 
+
+```java
+LocalDate date1 = LocalDate.of(2014, 3, 18);  
+LocalDate date2 = date1.plusWeeks(1); // 2011-03-18
+LocalDate date3 = date2.minusYears(3); // 2011-03-25
+LocalDate date4 = date3.plus(6, ChronoUnit.MONTHS);  // 2011-09-25 
+```
+
+###### 使用 TemporalAdjuster
+
+有的时候，你需要进行一些更加
+复杂的操作，比如，将日期调整到下个周日、下个工作日，或者是本月的最后一天。这时，你可以使用重载版本的with方法，向其传递一个提供了更多定制化选择的TemporalAdjuster对象，更 加 灵 活 地 处 理 日 期 。 对 于 最 常 见 的 用 例 ， 日 期 和 时 间 API 已 经 提 供 了 大 量 预 定 义 的TemporalAdjuster。你可以通过TemporalAdjuster类的静态工厂方法访问它们，如下所示。
+
+代码清单12-8 使用预定义的TemporalAdjuster 
+
+```java
+import static java.time.temporal.TemporalAdjusters.*; 
+ 
+LocalDate date1 = LocalDate.of(2014, 3, 18);  // 2014-03-18  
+LocalDate date2 = date1.with(nextOrSame(DayOfWeek.SUNDAY)); // 2014-03-23 
+LocalDate date3 = date2.with(lastDayOfMonth()); // 2014-03-31
+```
+
+![image-20240124103131243](media/images/image-20240124103131243.png)
+
+###### 打印输出及解析日期-时间对象
+
+处理日期和时间对象时，格式化以及解析日期时间对象是另一个非常重要的功能。新的java.time.format包就是特别为这个目的而设计的。这个包中，最重要的类是DateTime- Formatter。创建格式器最简单的方法是通过它的静态工厂方法以及常量。像BASIC_ISO_DATE和 ISO_LOCAL_DATE 这 样 的 常 量 是 DateTimeFormatter 类 的 预 定 义 实 例 。 所 有 的DateTimeFormatter实例都能用于以一定的格式创建代表特定日期或时间的字符串。
+
+```java
+LocalDate date = LocalDate.of(2014, 3, 18);  
+String s1 = date.format(DateTimeFormatter.BASIC_ISO_DATE); // 20140318
+String s2 = date.format(DateTimeFormatter.ISO_LOCAL_DATE); // 2014-03-18
+```
+
+你也可以通过解析代表日期或时间的字符串重新创建该日期对象。所有的日期和时间API都提供了表示时间点或者时间段的工厂方法，你可以使用工厂方法parse达到重创该日期对象的目的：
+
+```java
+LocalDate date1 = LocalDate.parse("20140318", 
+                                 DateTimeFormatter.BASIC_ISO_DATE); 
+LocalDate date2 = LocalDate.parse("2014-03-18", 
+                                 DateTimeFormatter.ISO_LOCAL_DATE); 
+```
+
+**和老的java.util.DateFormat相比较，所有的DateTimeFormatter实例都是线程安全的**。所以，你能够以单例模式创建格式器实例，就像DateTimeFormatter所定义的那些常量，并能在多个线程间共享这些实例。DateTimeFormatter类还支持一个静态工厂方法，它可以按照某个特定的模式创建格式器，代码清单如下。
+
+```java
+DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy"); 
+LocalDate date1 = LocalDate.of(2014, 3, 18); 
+String formattedDate = date1.format(formatter); 
+LocalDate date2 = LocalDate.parse(formattedDate, formatter); 
+```
+
+代码清单12-11 创建一个本地化的DateTimeFormatter
+
+```java
+DateTimeFormatter italianFormatter = 
+               DateTimeFormatter.ofPattern("d. MMMM yyyy", Locale.ITALIAN); 
+LocalDate date1 = LocalDate.of(2014, 3, 18); 
+String formattedDate = date.format(italianFormatter); // 18. marzo 2014 
+LocalDate date2 = LocalDate.parse(formattedDate, italianFormatter);
+```
+
+最后，如果你还需要更加细粒度的控制，DateTimeFormatterBuilder类还提供了更复杂的格式器，你可以选择恰当的方法，一步一步地构造自己的格式器。另外，它还提供了非常强大的解析功能，比如区分大小写的解析、柔性解析（允许解析器使用启发式的机制去解析输入，不精 确 地 匹 配 指 定 的 模 式 ）、 填 充 ， 以 及 在 格 式 器 中 指 定 可 选 节 。 比 如 ， 你 可 以 通 过
+DateTimeFormatterBuilder自 己 编 程 实 现 我 们 在 代 码 清 单 12-11中 使 用的 italianFor- matter，代码清单如下。 
+
+代码清单12-12 构造一个DateTimeFormatter 
+
+```java
+DateTimeFormatter italianFormatter = new DateTimeFormatterBuilder() 
+        .appendText(ChronoField.DAY_OF_MONTH) 
+        .appendLiteral(". ") 
+        .appendText(ChronoField.MONTH_OF_YEAR) 
+        .appendLiteral(" ") 
+        .appendText(ChronoField.YEAR) 
+        .parseCaseInsensitive() 
+        .toFormatter(Locale.ITALIAN); 
+```
+
+##### 处理不同的时区和历法
+
+时区的处理是新版日期和时间API新增
+加的重要功能，使用新版日期和时间API时区的处理被极大地简化了。**新的java.time.ZoneId类是老版java.util.TimeZone的替代品**。它的设计目标就是要让你无需为时区处理的复杂和繁琐而操心，比如处理日光时（Daylight Saving Time，DST）这种问题。跟其他日期和时间类一样，ZoneId类也是无法修改的。 
+
+时区是按照一定的规则将区域划分成的标准时间相同的区间。在ZoneRules这个类中包含了40个这样的实例。你可以简单地通过调用ZoneId的getRules()得到指定时区的规则。每个特定的ZoneId对象都由一个地区ID标识，比如： 
+
+`ZoneId romeZone = ZoneId.of("Europe/Rome"); `
+
+地区ID都为“{区域}/{城市}”的格式，这些地区集合的设定都由英特网编号分配机构（IANA）的时区数据库提供。你可以通过Java 8的新方法toZoneId将一个老的时区对象转换为ZoneId： 
+
+`ZoneId zoneId = TimeZone.getDefault().toZoneId();`
+
+一旦得到一个ZoneId对象，你就可以将它与LocalDate、LocalDateTime或者是Instant对象整合起来，构造为**一个ZonedDateTime实例，它代表了相对于指定时区的时间点**，代码清单如下所示。 
+
+代码清单12-13 为时间点添加时区信息 
+
+```java
+LocalDate date = LocalDate.of(2014, Month.MARCH, 18); 
+ZonedDateTime zdt1 = date.atStartOfDay(romeZone); 
+ 
+LocalDateTime dateTime = LocalDateTime.of(2014, Month.MARCH, 18, 13, 45); 
+ZonedDateTime zdt2 = dateTime.atZone(romeZone); 
+ 
+Instant instant = Instant.now(); 
+ZonedDateTime zdt3 = instant.atZone(romeZone); 
+```
+
+图12-1对ZonedDateTime的组成部分进行了说明，相信能够帮助你理解LocaleDate、LocalTime、LocalDateTime以及ZoneId之间的差异。
+
+![image-20240124104843239](media/images/image-20240124104843239.png)
+
+通过ZoneId，你还可以将LocalDateTime转换为Instant： 
+
+```java
+LocalDateTime dateTime = LocalDateTime.of(2014, Month.MARCH, 18, 13, 45); 
+Instant instantFromDateTime = dateTime.toInstant(romeZone); 
+```
+
+你也可以通过反向的方式得到LocalDateTime对象： 
+
+```java
+Instant instant = Instant.now(); 
+LocalDateTime timeFromInstant = LocalDateTime.ofInstant(instant, romeZone); 
+```
+

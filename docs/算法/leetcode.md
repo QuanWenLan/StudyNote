@@ -120,9 +120,9 @@ int count(TreeNode root) {
 
 > 二叉树题目的一个难点就是，如何把题目的要求细化成每个节点需要做的事情
 
+#### 二叉树的分类
 
-
-
+[二叉树的分类](https://www.cnblogs.com/EmilZs/p/10477973.html)
 
 
 
