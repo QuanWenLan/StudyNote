@@ -38,6 +38,8 @@ ViewResolver：视图解析器，负责将业务处理器返回的视图ModelAnd
 
 #### 1启动流程 
 
+##### web.XML
+
 需要先在 web.XML 中配置 DispatcherServlet。
 
 ```xml
@@ -79,6 +81,80 @@ ViewResolver：视图解析器，负责将业务处理器返回的视图ModelAnd
     <url-pattern>/</url-pattern>
   </servlet-mapping>
 </web-app>
+```
+
+##### spring mvc的配置
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+       http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd">
+
+    <!-- <mvc:annotation-driven /> 会自动注册DefaultAnnotationHandlerMapping 与 AnnotationMethodHandlerAdapter 两个bean,是spring MVC为@Controllers分发请求所必须的。它提供了数据绑定支持，读取json的支持 -->
+    <mvc:annotation-driven />
+
+    <!-- 设置自动注入bean的扫描范围，use-default-filters默认为true，会扫描所有的java类进行注入 ，-->
+    <!-- Use-dafault-filters=”false”的情况下：<context:exclude-filter>指定的不扫描，<context:include-filter>指定的扫描 -->
+    <!-- springmvc和application文件都需要配置，但mvc文件只扫描controller类，application扫描不是controller类 -->
+    <!--<context:component-scan base-package="lan.mvc" use-default-filters="false">
+        <context:include-filter expression="org.springframework.stereotype.Controller" type="annotation"/>
+    </context:component-scan>-->
+    <context:component-scan base-package="lan.mvc" />
+
+    <!-- 文件上传功能需该配置 当有文件时调用org.springframework.web.servlet.DispatcherServlet.checkMultipart() 方法
+    参考：https://blog.csdn.net/weixin_34411563/article/details/92375209
+    -->
+    <bean class="org.springframework.web.multipart.commons.CommonsMultipartResolver" id="multipartResolver">
+        <property name="defaultEncoding" value="UTF-8"/>
+        <property name="maxUploadSize" value="10485760"/>
+    </bean>
+
+    <!-- ResourceBundleThemeSource是ThemeSource接口默认实现类-->
+    <bean class="org.springframework.ui.context.support.ResourceBundleThemeSource" id="themeSource"/>
+
+    <!-- 用于实现用户所选的主题，以Cookie的方式存放在客户端的机器上-->
+    <bean class="org.springframework.web.servlet.theme.CookieThemeResolver" id="themeResolver" p:cookieName="theme" p:defaultThemeName="standard"/>
+
+    <!-- 由于web.xml文件中进行了请求拦截
+        <servlet-mapping>
+            <servlet-name>dispatcher</servlet-name>
+            <url-pattern>/</url-pattern>
+        </servlet-mapping>
+    这样会影响到静态资源文件的获取，mvc:resources的作用是帮你分类完成获取静态资源的责任
+    -->
+<!--    <mvc:resources mapping="/resources/**" location="/WEB-INF/resources/" />-->
+
+    <!-- 配置使用 SimpleMappingExceptionResolver 来映射异常 -->
+    <bean class="org.springframework.web.servlet.handler.SimpleMappingExceptionResolver" >
+        <!-- 定义默认的异常处理页面 -->
+        <property name="defaultErrorView" value="error"/>
+        <!-- 配置异常的属性值为ex，那么在错误页面中可以通过 ${exception} 来获取异常的信息如果不配置这个属性，它的默认值为exception-->
+        <property name="exceptionAttribute" value="exception"/>
+        <property name="exceptionMappings">
+            <props>
+                <!-- 映射特殊异常对应error.jsp这个页面 -->
+                <prop key=".DataAccessException">error</prop>
+                <prop key=".NoSuchRequestHandlingMethodException">error</prop>
+                <prop key=".TypeMismatchException">error</prop>
+                <prop key=".MissingServletRequestParameterException">error</prop>
+            </props>
+        </property>
+    </bean>
+
+    <!-- 配置jsp视图解析器 -->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver" id="jspViewResolver">
+        <property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+        <property name="prefix" value="/WEB-INF/"/>
+        <property name="suffix" value=".jsp"/>
+    </bean>
+</beans>
 ```
 
 项目启动时会创建DispatcherServlet并会执行DispatcherServlet的初始化init方法，查看DispatcherServlet的类图可以发现，DispatcherServlet继承FrameworkServlet，最先开始调用的是 HttpServlet 的init 方法。这个方法是空方法，留给子类覆盖了。而 HttpServletBean 覆盖了这个方法，所以会调用到这个类的 init 方法里面去。至于为什么会调用 HttpServlet 的init方法，还要分析查找下。(应该和tomcat启动有关，这里是servlet的生命周期有关，先调用init方法)
@@ -310,14 +386,14 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
          processedRequest = checkMultipart(request);
          multipartRequestParsed = (processedRequest != request);
 
-         // Determine handler for the current request.
+         // Determine handler for the current request. HandlerExecutionChain 是这个对象
           /** 1.根据请求从HandlerMapping中查询具体的业务处理器 也就是获取对应的 controller 对应的 handler*/
          mappedHandler = getHandler(processedRequest);
          if (mappedHandler == null) {
             noHandlerFound(processedRequest, response);
             return;
          }
-/** 2.根据业务处理器查询对应业务处理器适配器 */
+/** 2.根据业务处理器查询对应业务处理器适配器，根据handler获取匹配的handlerAdapter */
          // Determine handler adapter for the current request.
          HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
 
@@ -341,8 +417,9 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
          if (asyncManager.isConcurrentHandlingStarted()) {
             return;
          }
-
+// 通过视图的prefix和postfix获取完整的视图名
          applyDefaultViewName(processedRequest, mv);
+         // 应用后置的拦截器
          mappedHandler.applyPostHandle(processedRequest, response, mv);
       }
       catch (Exception ex) {
@@ -353,7 +430,7 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
          // making them available for @ExceptionHandler methods and other scenarios.
          dispatchException = new NestedServletException("Handler dispatch failed", err);
       }
-        /** 4.处理请求执行结果 */
+        /** 4.处理请求执行结果，显然就是对ModelAndView 或者 出现的Excpetion处理 */
       processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
    }
    // ....
@@ -368,7 +445,229 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
 
 这里处理完了之后返回的是视图 ModelAndView 了。
 
-#### 总结：
+##### 获取HandlerExecutionChain 
+
+具体 HandlerExecutionChain mappedHandler = getHandler(processedRequest);
+
+![image-20240131152836873](media/images/image-20240131152836873.png)
+
+查看请求我们在页面上发起了一个get请求，然后走到了这里，去获取对应的执行链，我们继续往下看。
+
+```java
+protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {
+   if (this.handlerMappings != null) {
+      for (HandlerMapping mapping : this.handlerMappings) {
+         HandlerExecutionChain handler = mapping.getHandler(request);
+         if (handler != null) {
+            return handler;
+         }
+      }
+   }
+   return null;
+}
+```
+
+这里是直接通过 HandlerMapping 来获取的，通过第一个mapping去获取出来的结果就已经能够判断到是哪个controller了。
+
+![image-20240131153048809](media/images/image-20240131153048809.png)
+
+![image-20240131153252520](media/images/image-20240131153252520.png)
+
+但是这里的handler是一个 HandlerMethod 对象，随后在方法 HandlerExecutionChain executionChain = getHandlerExecutionChain(handler, request); 中组装成一个chain
+
+```java
+protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
+   HandlerExecutionChain chain = (handler instanceof HandlerExecutionChain ?
+         (HandlerExecutionChain) handler : new HandlerExecutionChain(handler));
+
+   String lookupPath = this.urlPathHelper.getLookupPathForRequest(request, LOOKUP_PATH);
+   for (HandlerInterceptor interceptor : this.adaptedInterceptors) {
+      if (interceptor instanceof MappedInterceptor) {
+         MappedInterceptor mappedInterceptor = (MappedInterceptor) interceptor;
+         if (mappedInterceptor.matches(lookupPath, this.pathMatcher)) {
+            chain.addInterceptor(mappedInterceptor.getInterceptor());
+         }
+      }
+      else {
+         chain.addInterceptor(interceptor);
+      }
+   }
+   return chain;
+}
+```
+
+![image-20240131153540969](media/images/image-20240131153540969.png)
+
+##### 获取 getHandlerAdapter
+
+```java
+HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+```
+
+具体的则是通过判断哪个adapter能够支持，就返回哪一个，第一个判断就成功了，那么这里也就是类 RequestMappingHandlerAdapter 了。
+
+![image-20220414122334465](media/images/image-20220414122334465.png)
+
+##### 执行具体逻辑
+
+```java
+mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+```
+
+现在是走到具体的RequestMappingHandlerAdapter 的handle方法里面去执行逻辑了，交给handleInternal方法处理，以RequestMappingHandlerAdapter这个HandlerAdapter中的处理方法为例。
+
+![image-20240131154223392](media/images/image-20240131154223392.png)
+
+然后执行invokeHandlerMethod这个方法，用来对RequestMapping（TestController中的users方法）进行处理。
+
+```java
+protected ModelAndView invokeHandlerMethod(HttpServletRequest request,
+      HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {
+
+   ServletWebRequest webRequest = new ServletWebRequest(request, response);
+   try {
+      WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);
+      ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
+	// 重要：设置handler(controller#list)方法上的参数，返回值处理，绑定databinder等！！！
+      ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
+      if (this.argumentResolvers != null) {
+         invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
+      }
+      if (this.returnValueHandlers != null) {
+         invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
+      }
+      invocableMethod.setDataBinderFactory(binderFactory);
+      invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
+
+      ModelAndViewContainer mavContainer = new ModelAndViewContainer();
+      mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+      modelFactory.initModel(webRequest, mavContainer, invocableMethod);
+      mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
+
+      AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);
+      asyncWebRequest.setTimeout(this.asyncRequestTimeout);
+
+      WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+      asyncManager.setTaskExecutor(this.taskExecutor);
+      asyncManager.setAsyncWebRequest(asyncWebRequest);
+      asyncManager.registerCallableInterceptors(this.callableInterceptors);
+      asyncManager.registerDeferredResultInterceptors(this.deferredResultInterceptors);
+
+      if (asyncManager.hasConcurrentResult()) {
+         Object result = asyncManager.getConcurrentResult();
+         mavContainer = (ModelAndViewContainer) asyncManager.getConcurrentResultContext()[0];
+         asyncManager.clearConcurrentResult();
+         LogFormatUtils.traceDebug(logger, traceOn -> {
+            String formatted = LogFormatUtils.formatValue(result, !traceOn);
+            return "Resume with async result [" + formatted + "]";
+         });
+         invocableMethod = invocableMethod.wrapConcurrentResult(result);
+      }
+ // 执行controller中方法！！！
+      invocableMethod.invokeAndHandle(webRequest, mavContainer);
+      if (asyncManager.isConcurrentHandlingStarted()) {
+         return null;
+      }
+
+      return getModelAndView(mavContainer, modelFactory, webRequest);
+   }
+   finally {
+      webRequest.requestCompleted();
+   }
+}
+```
+
+后续的调用查看调用栈，最后会到我们具体的那个方法：
+
+![image-20240131154730121](media/images/image-20240131154730121.png)
+
+```java
+@RequestMapping("/users")
+public String users() {
+    System.out.println("come in....");
+    System.out.println("come out....");
+    return "users";
+}
+```
+
+##### 视图渲染
+
+我上面没有返回一个具体的视图，后续代码可以看：https://pdai.tech/md/spring/spring-x-framework-springmvc-source-2.html。但是我配置了具体的页面，也是视图，我这个请求会跳转到user.jsp页面的。我们查看返回后的结果：
+
+![image-20240131155030207](media/images/image-20240131155030207.png)
+
+接下来继续执行processDispatchResult方法，对视图和model（如果有异常则对异常处理）进行处理（显然就是渲染页面了）。返回到调用入口，查看 modelandview
+
+![image-20240131155148338](media/images/image-20240131155148338.png)
+
+```java
+/**
+  * Handle the result of handler selection and handler invocation, which is
+  * either a ModelAndView or an Exception to be resolved to a ModelAndView.
+  */
+private void processDispatchResult(HttpServletRequest request, HttpServletResponse response,
+    @Nullable HandlerExecutionChain mappedHandler, @Nullable ModelAndView mv,
+    @Nullable Exception exception) throws Exception {
+
+  boolean errorView = false;
+
+  // 如果处理过程有异常，则异常处理
+  if (exception != null) {
+    if (exception instanceof ModelAndViewDefiningException) {
+      logger.debug("ModelAndViewDefiningException encountered", exception);
+      mv = ((ModelAndViewDefiningException) exception).getModelAndView();
+    }
+    else {
+      Object handler = (mappedHandler != null ? mappedHandler.getHandler() : null);
+      mv = processHandlerException(request, response, handler, exception);
+      errorView = (mv != null);
+    }
+  }
+
+  // 是否需要渲染视图
+  if (mv != null && !mv.wasCleared()) {
+    render(mv, request, response); // 渲染视图
+    if (errorView) {
+      WebUtils.clearErrorRequestAttributes(request);
+    }
+  }
+  else {
+    if (logger.isTraceEnabled()) {
+      logger.trace("No view rendering, null ModelAndView returned.");
+    }
+  }
+
+  if (WebAsyncUtils.getAsyncManager(request).isConcurrentHandlingStarted()) {
+    // Concurrent handling started during a forward
+    return;
+  }
+
+  if (mappedHandler != null) {
+    // Exception (if any) is already handled..
+    mappedHandler.triggerAfterCompletion(request, response, null);
+  }
+}
+```
+
+接下来显然就是渲染视图了, spring在initStrategies方法中初始化的组件（LocaleResovler等）就派上用场了。还记得我们配置springmvc.xml的时候配置了视图相关组件吗？
+
+```xml
+<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver" id="jspViewResolver">
+    <property name="viewClass" value="org.springframework.web.servlet.view.JstlView"/>
+    <property name="prefix" value="/WEB-INF/"/>
+    <property name="suffix" value=".jsp"/>
+</bean>
+```
+
+在执行完了resolveViewName 方法后，查看view就已经是正常的页面了。这里有一个 Locale，查看
+
+![image-20240131155939860](media/images/image-20240131155939860.png)
+
+![image-20240131155552277](media/images/image-20240131155552277.png)
+
+后续就是通过viewResolver进行解析了。
+
+#### 总结
 
 核心逻辑比较清晰，先从处理器映射器中查询请求对应的业务处理器，然后再根据业务处理器找到处理器适配器，然后调用适配器的handle方法处理业务，最终执行processDispatchResult方法处理请求的处理结果。
 

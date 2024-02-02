@@ -3,7 +3,7 @@
 完成CGLIB代理的类是委托给Cglib2AopProxy类去实现的，我们进入这个类一探究竟。按照前面提供的示例，我们容易判断出来，Cglib2AopProxy的入口应该是在getProxy，也就是说在Cglib2AopProxy类的getProxy方法中实现了Enhancer的创建及接口封装。
 
 ```java 
-org.springframework.aop.framework.CglibAopProxy#getProxy
+// org.springframework.aop.framework.CglibAopProxy#getProxy
 public Object getProxy(@Nullable ClassLoader classLoader) {
    if (logger.isTraceEnabled()) {
       logger.trace("Creating CGLIB proxy: " + this.advised.getTargetSource());
@@ -12,7 +12,7 @@ public Object getProxy(@Nullable ClassLoader classLoader) {
    try {
       Class<?> rootClass = this.advised.getTargetClass();
       Assert.state(rootClass != null, "Target class must be available for creating a CGLIB proxy");
-
+		// 代理的目标类
       Class<?> proxySuperClass = rootClass;
       if (rootClass.getName().contains(ClassUtils.CGLIB_CLASS_SEPARATOR)) {
          proxySuperClass = rootClass.getSuperclass();
@@ -25,7 +25,7 @@ public Object getProxy(@Nullable ClassLoader classLoader) {
       // Validate the class, writing log messages as necessary.
       validateClassIfNecessary(proxySuperClass, classLoader);
 
-      // Configure CGLIB Enhancer...
+      // Configure CGLIB Enhancer... 设置各种参数来构建 Enhancer
       Enhancer enhancer = createEnhancer();
       if (classLoader != null) {
          enhancer.setClassLoader(classLoader);
@@ -39,12 +39,12 @@ public Object getProxy(@Nullable ClassLoader classLoader) {
       enhancer.setNamingPolicy(SpringNamingPolicy.INSTANCE);
       enhancer.setStrategy(new ClassLoaderAwareGeneratorStrategy(classLoader));
 
-      Callback[] callbacks = getCallbacks(rootClass); // 设置拦截器
+      Callback[] callbacks = getCallbacks(rootClass); // 设置拦截器---方法的增强点
       Class<?>[] types = new Class<?>[callbacks.length];
       for (int x = 0; x < types.length; x++) {
          types[x] = callbacks[x].getClass();
       }
-      // fixedInterceptorMap only populated at this point, after getCallbacks call above
+      // fixedInterceptorMap only populated at this point, after getCallbacks call above 可以添加一些过滤器来过滤掉不想执行的增强
       enhancer.setCallbackFilter(new ProxyCallbackFilter(
             this.advised.getConfigurationOnlyCopy(), this.fixedInterceptorMap, this.fixedInterceptorOffset));
       enhancer.setCallbackTypes(types);
@@ -265,9 +265,8 @@ intercept()方法主要完成如下步骤：
 
 ###### 2.2.1 获取拦截器链
 
-public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializable {
-
 ```java
+public class DefaultAdvisorChainFactory implements AdvisorChainFactory, Serializable {
 @Override
 public List<Object> getInterceptorsAndDynamicInterceptionAdvice(
 		Advised config, Method method, @Nullable Class<?> targetClass) {
@@ -336,6 +335,98 @@ public List<Object> getInterceptorsAndDynamicInterceptionAdvice(
 
 ![image-20230303163106350](media/images/image-20230303163106350.png)
 
+###### 创建方法调用
+
+`new CglibMethodInvocation(proxy, target, method, args, targetClass, chain, methodProxy).proceed()` 这里创建一个类用来调用方法，进去能够观察到，方法会对需要代理的方法进行修饰符的判断，为 public 的才会进行代理。
+
+```java
+private static class CglibMethodInvocation extends ReflectiveMethodInvocation {
+
+   @Nullable
+   private final MethodProxy methodProxy;
+
+   public CglibMethodInvocation(Object proxy, @Nullable Object target, Method method,
+         Object[] arguments, @Nullable Class<?> targetClass,
+         List<Object> interceptorsAndDynamicMethodMatchers, MethodProxy methodProxy) {
+		// interceptorsAndDynamicMethodMatchers 这个值即是我们上面获取到的执行链，也就是那些增强方法
+      super(proxy, target, method, arguments, targetClass, interceptorsAndDynamicMethodMatchers);
+
+      // Only use method proxy for public methods not derived from java.lang.Object
+      this.methodProxy = (Modifier.isPublic(method.getModifiers()) &&
+            method.getDeclaringClass() != Object.class && !AopUtils.isEqualsMethod(method) &&
+            !AopUtils.isHashCodeMethod(method) && !AopUtils.isToStringMethod(method) ?
+            methodProxy : null);
+   }
+
+   @Override
+   @Nullable
+   public Object proceed() throws Throwable {
+      try {
+         return super.proceed();
+      }
+      catch (RuntimeException ex) {
+         throw ex;
+      }
+      catch (Exception ex) {
+         if (ReflectionUtils.declaresException(getMethod(), ex.getClass())) {
+            throw ex;
+         }
+         else {
+            throw new UndeclaredThrowableException(ex);
+         }
+      }
+   }
+
+   /**
+    * Gives a marginal performance improvement versus using reflection to
+    * invoke the target when invoking public methods.
+    */
+   @Override
+   protected Object invokeJoinpoint() throws Throwable {
+      if (this.methodProxy != null) {
+         return this.methodProxy.invoke(this.target, this.arguments);
+      }
+      else {
+         return super.invokeJoinpoint();
+      }
+   }
+}
+```
+
+随后调用proceed()方法，进入后发现调用了 super.proceed()，也就是去到了 ReflectiveMethodInvocation 类。这个类中的proceed()方法是一个循环调用的方法，首先根据 `++this.currentInterceptorIndex` 获取第0个拦截器进行方法调用。执行链的这些类都不是InterceptorAndDynamicMethodMatcher实例，所以 ExposeInvocationInterceptor 拦截器，首先不是  InterceptorAndDynamicMethodMatcher 类型，所以走下面的else分支了。
+
+```java
+public Object proceed() throws Throwable {
+   // We start with an index of -1 and increment early.
+   if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
+      return invokeJoinpoint();
+   }
+
+   Object interceptorOrInterceptionAdvice =
+         this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
+   if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
+      // Evaluate dynamic method matcher here: static part will already have
+      // been evaluated and found to match.
+      InterceptorAndDynamicMethodMatcher dm =
+            (InterceptorAndDynamicMethodMatcher) interceptorOrInterceptionAdvice;
+      Class<?> targetClass = (this.targetClass != null ? this.targetClass : this.method.getDeclaringClass());
+      if (dm.methodMatcher.matches(this.method, targetClass, this.arguments)) {
+         return dm.interceptor.invoke(this);
+      }
+      else {
+         // Dynamic matching failed.
+         // Skip this interceptor and invoke the next in the chain.
+         return proceed();
+      }
+   }
+   else {
+      // It's an interceptor, so we just invoke it: The pointcut will have
+      // been evaluated statically before this object was constructed.
+      return ((MethodInterceptor) interceptorOrInterceptionAdvice).invoke(this);
+   }
+}
+```
+
 ###### 2.2.2 执行拦截器链
 
 ###### 1 **ExposeInvocationInterceptor**
@@ -386,9 +477,7 @@ public class AspectJAfterThrowingAdvice extends AbstractAspectJAdvice
 }
 ```
 
-执行第一行代码又返回回去了。
-
-此时开始处理拦截器链中下标为 2 的拦截器，也就是`AfterReturningAdviceInterceptor`。
+执行第一行代码又返回回去了。此时开始处理拦截器链中下标为 2 的拦截器，也就是`AfterReturningAdviceInterceptor`。
 
 ###### 3 AfterReturningAdviceInterceptor
 
@@ -424,9 +513,7 @@ public class AspectJAfterAdvice extends AbstractAspectJAdvice
 }
 ```
 
-执行第一行代码又返回回去了。
-
-此时开始处理拦截器链中下标为 4 的拦截器，也就是`AspectJAroundAdvice`
+执行第一行代码又返回回去了。此时开始处理拦截器链中下标为 4 的拦截器，也就是`AspectJAroundAdvice`
 
 ###### 5 AspectJAroundAdvice
 
@@ -475,7 +562,7 @@ public Object aroundTest(ProceedingJoinPoint p) {
 
 执行了第一个打引之后，又调用了`p.proceed()`方法进行返回，此时我们看到控制台只有第一行打印输出：`@Around 方法 before`，
 
-调用了`pjp.proceed(args)`方法进行返回，此时开始处理拦截器链中下标为 5 的拦截器，也就是最后一个拦截器了`MethodBeforeAdviceInterceptor`。
+调用了`p.proceed(args)`方法进行返回，此时开始处理拦截器链中下标为 5 的拦截器，也就是最后一个拦截器了`MethodBeforeAdviceInterceptor`。
 
 ###### 6 MethodBeforeAdviceInterceptor
 
@@ -618,3 +705,261 @@ public class AspectJAfterThrowingAdvice extends AbstractAspectJAdvice
 <img src="media/images/image-20230303171734462.png" alt="image-20230303171734462" style="zoom:67%;" />
 
 设置一个空值，然后继续返回。然后执行完毕，以上就是拦截器链的执行过程。
+
+上面的执行链图。
+
+![调用过程](media/images/调用过程.png)
+
+##### 5.2.7 版本之后，返回的执行链的顺序发生了改变
+
+![image-20240130161822938](media/images/image-20240130161822938.png)
+
+所以上面的执行顺序也发生了改变了。上面的这些类都不是 InterceptorAndDynamicMethodMatcher 类实例，所以走的都是else分支。
+
+```java
+public Object proceed() throws Throwable {
+   // We start with an index of -1 and increment early.
+   if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
+      return invokeJoinpoint();
+   }
+
+   Object interceptorOrInterceptionAdvice =
+         this.interceptorsAndDynamicMethodMatchers.get(++this.currentInterceptorIndex);
+   if (interceptorOrInterceptionAdvice instanceof InterceptorAndDynamicMethodMatcher) {
+      // Evaluate dynamic method matcher here: static part will already have
+      // been evaluated and found to match.
+      InterceptorAndDynamicMethodMatcher dm =
+            (InterceptorAndDynamicMethodMatcher) interceptorOrInterceptionAdvice;
+      Class<?> targetClass = (this.targetClass != null ? this.targetClass : this.method.getDeclaringClass());
+      if (dm.methodMatcher.matches(this.method, targetClass, this.arguments)) {
+         return dm.interceptor.invoke(this);
+      }
+      else {
+         // Dynamic matching failed.
+         // Skip this interceptor and invoke the next in the chain.
+         return proceed();
+      }
+   }
+   else {
+      // It's an interceptor, so we just invoke it: The pointcut will have
+      // been evaluated statically before this object was constructed.
+      return ((MethodInterceptor) interceptorOrInterceptionAdvice).invoke(this);
+   }
+}
+```
+
+我们通过idea的debug查看方法的调用链：
+
+###### 1 AspectJAroundAdvice 执行
+
+![image-20240130163133059](media/images/image-20240130163133059.png)
+
+###### 2 AspectJMethodBeforeAdvice
+
+![image-20240130163443399](media/images/image-20240130163443399.png)
+
+控制台此时的输出：
+
+@Around 方法 before
+@Before beforeTest
+
+###### 3 AspectJAfterAdvice
+
+![image-20240130163616422](media/images/image-20240130163616422.png)
+
+调用它的proceed()方法后，是直接去到了下一个执行链中了。
+
+```java
+public Object invoke(MethodInvocation mi) throws Throwable {
+   try {
+      return mi.proceed();
+   }
+   finally {
+      invokeAdviceMethod(getJoinPointMatch(), null, null);
+   }
+}
+```
+
+可以看到此时的方法调用栈帧是这样的：
+
+![image-20240130163932523](media/images/image-20240130163932523.png)
+
+###### 4 AfterReturningAdviceInterceptor
+
+```java
+public Object invoke(MethodInvocation mi) throws Throwable {
+   Object retVal = mi.proceed();
+   this.advice.afterReturning(retVal, mi.getMethod(), mi.getArguments(), mi.getThis());
+   return retVal;
+}
+```
+
+先调用了下一个执行逻辑，然后在调用 afterReturning 方法。
+
+###### 5 AspectJAfterThrowingAdvice
+
+```java
+public Object invoke(MethodInvocation mi) throws Throwable {
+   try {
+      return mi.proceed();
+   }
+   catch (Throwable ex) {
+      if (shouldInvokeOnThrowing(ex)) {
+         invokeAdviceMethod(getJoinPointMatch(), null, ex);
+      }
+      throw ex;
+   }
+}
+```
+
+###### 6 继续往下，下一步终止
+
+这里也是直接调用了下一个逻辑，发现下一个逻辑没有了，走到了最后，终止了递归调用，然后返回。
+
+```java
+if (this.currentInterceptorIndex == this.interceptorsAndDynamicMethodMatchers.size() - 1) {
+      return invokeJoinpoint();
+   }
+```
+
+查看此时的调用栈，这个返回了一个null值。
+
+![image-20240130164700357](media/images/image-20240130164700357-17066044222941.png)
+
+然后依次返回
+
+###### 7 返回 AspectJAfterThrowingAdvice
+
+这里返回到调用层，上面有调用的代码，是没有其他操作的，只有一个catch异常，然后继续返回到上一层调用。
+
+###### 8 返回到 AfterReturningAdviceInterceptor
+
+![image-20240130165200589](media/images/image-20240130165200589.png)
+
+此时的控制台输出只有around before和 before 方法和目标方法的输出
+
+```java
+@Around 方法 before
+@Before beforeTest
+1,xiaoming
+testgg
+test内部对象
+```
+
+执行 afterReturning 方法之后，控制台多出了一个输出。
+
+```java
+@Around 方法 before
+@Before beforeTest
+1,xiaoming
+testgg
+test内部对象
+@AfterReturning
+```
+
+然后继续返回到调用的地方，查看代码：
+
+![image-20240130165528080](media/images/image-20240130165528080.png)
+
+###### 9 返回到 AspectJAfterAdvice
+
+发现这边的代码也是直接返回了的，只是有一个finally代码块：
+
+```java
+public Object invoke(MethodInvocation mi) throws Throwable {
+   try {
+      return mi.proceed();
+   }
+   finally {
+      invokeAdviceMethod(getJoinPointMatch(), null, null);
+   }
+}
+```
+
+执行后finally块之后继续返回到上一层调用方。此时我们发现控制台又多出了一个输出：
+
+```java
+@Around 方法 before
+@Before beforeTest
+1,xiaoming
+testgg
+test内部对象
+@AfterReturning
+@After afterTest
+```
+
+查看此时调用的代码
+
+![image-20240130165911017](media/images/image-20240130165911017-17066051520662.png)
+
+###### 10 返回到 MethodBeforeAdviceInterceptor
+
+![image-20240130170040039](media/images/image-20240130170040039.png)
+
+###### 11 around 方法的调用处
+
+先前是从这里继续调用了  p.proceed(); 方法的
+
+```java
+@Around("test()")
+public Object aroundTest(ProceedingJoinPoint p) {
+    System.out.println("@Around 方法 before");
+    Object o = null;
+    try {
+        o = p.proceed();
+    } catch (Throwable e) {
+        e.printStackTrace();
+    }
+    System.out.println("@Around 方法 after");
+    return o;
+}
+```
+
+此时的返回值为 null，然后执行下面的输出。查看控制台的输出，继续返回。
+
+```java
+@Around 方法 before
+@Before beforeTest
+1,xiaoming
+testgg
+test内部对象
+@AfterReturning
+@After afterTest
+@Around 方法 after
+```
+
+###### 12 返回到AspectJAroundAdvice  开始调用 around 方法拦截器的地方
+
+```java
+protected Object invokeAdviceMethod(JoinPoint jp, @Nullable JoinPointMatch jpMatch,
+      @Nullable Object returnValue, @Nullable Throwable t) throws Throwable {
+
+   return invokeAdviceMethodWithGivenArgs(argBinding(jp, jpMatch, returnValue, t));
+}
+```
+
+查看此时的调用方代码，看到调用栈还有一个，需要返回的。
+
+![image-20240130170447954](media/images/image-20240130170447954.png)
+
+###### 13 返回到 ExposeInvocationInterceptor
+
+![image-20240130170618020](media/images/image-20240130170618020.png)
+
+###### 14 最终返回到一开始调用的地方
+
+![image-20240130170724337](media/images/image-20240130170724337.png)
+
+查看此时的返回值为 null。到此新的版本的执行调用顺序就完成了，控制台也输出了完成的输出信息。
+
+```java
+@Around 方法 before
+@Before beforeTest
+1,xiaoming
+testgg
+test内部对象
+@AfterReturning
+@After afterTest
+@Around 方法 after
+```
+

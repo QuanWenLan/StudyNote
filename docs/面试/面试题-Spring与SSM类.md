@@ -517,3 +517,43 @@ private Service2 service2;
 ```
 
 代码报错位置：
+
+
+
+
+
+##### spring中@Configuration和@Component的区别
+
+原文链接：https://blog.csdn.net/qq_39002724/article/details/112556115
+
+###### 使用@Component
+
+```java
+@Component
+public class TestConfiguration {
+
+    @Bean
+    public Alarm alarm(){
+        Alarm alarm = new Alarm();
+        alarm.setAlarmDataHistory(alarmDataHistory());
+        return alarm;
+    }
+
+    @Bean
+    public AlarmDataHistory alarmDataHistory(){
+        return new AlarmDataHistory();
+    }
+}
+```
+
+后来测试发现，Alarm中AlarmDataHistory对象的hashcode值，和通过alarmDataHistory()返回的hashcode值不一样。违反了spring的单例原则。
+
+###### 使用@Configuration
+
+现在将@Component换成@Configuration，其他不变
+
+测试发现，Alarm中AlarmDataHistory对象的hashcode值，和通过alarmDataHistory()返回的hashcode值是一样的。
+
+先说原因：通过@Configuration方式，最终生成的是TestConfiguration的cglib代理类，此时Alarm中的AlarmDataHistory对象，和通过alarmDataHistory()返回AlarmDataHistory对象，是spring容器的同一个对象。
+而使用@Component时，每次生成的都是新的对象。
+

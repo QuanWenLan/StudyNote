@@ -1,5 +1,7 @@
 具体的手撸spring博客：[第01章：开篇介绍，我要带你撸 Spring 啦！ | 小傅哥 bugstack 虫洞栈](https://bugstack.cn/md/spring/develop-spring/2021-05-16-第1章：开篇介绍，手写Spring能给你带来什么？.html)
 
+参考的博客： 原文链接：https://pdai.tech/md/spring/spring-x-framework-ioc-source-1.html
+
 ### 结构上的理解
 
 ### org.springframework.beans 包
@@ -76,7 +78,7 @@ org.springframework.beans.factory.**config**.ConfigurableBeanFactory
 public interface ConfigurableBeanFactory extends HierarchicalBeanFactory, SingletonBeanRegistry {}
 ```
 
-由大多数bean工厂实现的配置接口，提供配置Factory的各种方法。可以看到有查看spring源码遇到的一些方法：
+由大多数bean工厂实现的配置接口，提供配置Factory的各种方法。它定义了设置类装载器、属性编辑器、容器初始化后置处理器等方法，可以看到有查看spring源码遇到的一些方法：
 
 ![image-20231218104018837](media/images/image-20231218104018837.png)
 
@@ -180,7 +182,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 #### ConfigurableListableBeanFactory
 
-BeanFactory配置清单，**指定忽略类型及接口**等。
+BeanFactory配置清单，**指定忽略类型及接口**等，ListableBeanFactory 和 ConfigurableBeanFactory的融合。
 
 ```java
 public interface ConfigurableListableBeanFactory
@@ -414,7 +416,75 @@ public int loadBeanDefinitions(Resource resource) throws BeanDefinitionStoreExce
 
 同时这个方法 int loadBeanDefinitions(Resource resource) throws BeanDefinitionStoreException;  是定义在 org.springframework.beans.factory.support.**BeanDefinitionReader**#loadBeanDefinitions(org.springframework.core.io.Resource) 中的。
 
-### 对于应用上下文 Context
+### 对于应用上下文 Context -ApplicationContext 
 
-org.springframework.context 包
+org.springframework.context 包。
+
+我们来看下ApplicationContext整体结构
+
+![image-20240129164855693](media/images/image-20240129164855693.png)
+
+ApplicationContext 提供:
+
+1. 用于访问应用程序组件的 Bean 工厂方法。继承自ListableBeanFactory 。
+2. 以通用方式加载文件资源的能力。继承自org.springframework.core.io.ResourceLoader接口。
+3. 向注册的侦听器发布事件的能力。继承自ApplicationEventPublisher接口。
+4. 解决消息的能力，支持国际化。继承自MessageSource接口。
+5. 从父上下文继承。后代上下文中的定义将始终具有优先权。这意味着，例如，整个 Web 应用程序可以使用单个父上下文，而每个 servlet 都有自己的子上下文，该子上下文独立于任何其他 servlet。
+6. **LifeCycle**：该接口是 Spring 2.0 加入的，该接口提供了 start()和 stop()两个方法，主要用于控制异步处理过程。在具体使用时，该接口同时被 ApplicationContext 实现及具体 Bean 实现， ApplicationContext 会将 start/stop 的信息传递给容器中所有实现了该接口的 Bean，以达到管理和控制 JMX、任务调度等目的。
+
+#### ApplicationContext 实现类
+
+在考虑ApplicationContext接口的实现时，关键的点在于，不同Bean的配置方式（比如xml,groovy,annotation等）有着不同的资源加载方式，这便衍生除了众多ApplicationContext的实现类。
+
+![image-20240129165445297](media/images/image-20240129165445297.png)
+
+##### ConfigurableApplicationContext
+
+这个类主要是用来定义配置和生命周期的方法，避免在 ApplicationContext  中定义过多的方法，这些方法只在开始或结束时候使用。
+
+```java
+public interface ConfigurableApplicationContext extends ApplicationContext, Lifecycle, Closeable {}
+```
+
+![image-20240129170234333](media/images/image-20240129170234333.png)
+
+##### AbstractApplicationContext
+
+抽象类 AbstractApplicationContext 实现了这个接口，并且继承了 DefaultResourceLoader，而且可以看到在这个类中定义了我们整个框架需要用到的基本的一些关于beanFactory加载和后置处理器的一些方法，都在这个refresh()方法中有具体的使用。
+
+![image-20240129170727852](media/images/image-20240129170727852.png)
+
+此时我们再看上面的类图结构：
+
+**第一，从类结构设计上看， 围绕着是否需要Refresh容器衍生出两个抽象类**：
+
+- **GenericApplicationContext**： 是初始化的时候就创建容器，往后的每次refresh都不会更改
+
+- **AbstractRefreshableApplicationContext**： AbstractRefreshableApplicationContext及子类的每次refresh都是先清除已有(如果不存在就创建)的容器，然后再重新创建；AbstractRefreshableApplicationContext及子类无法做到GenericApplicationContext**混合搭配从不同源头获取bean的定义信息**。
+
+**第二， 从加载的源来看（比如xml,groovy,annotation等）， 衍生出众多类型的ApplicationContext, 典型比如**:
+
+- **FileSystemXmlApplicationContext**： 从文件系统下的一个或多个xml配置文件中加载上下文定义，也就是说系统盘符中加载xml配置文件。
+- **ClassPathXmlApplicationContext**： 从类路径下的一个或多个xml配置文件中加载上下文定义，适用于xml配置的方式。
+- **AnnotationConfigApplicationContext**： 从一个或多个基于java的配置类中加载上下文定义，适用于java注解的方式。
+- **ConfigurableApplicationContext**： 扩展于 ApplicationContext，它新增加了两个主要的方法： refresh()和 close()，让 ApplicationContext 具有启动、刷新和关闭应用上下文的能力。在应用上下文关闭的情况下调用 refresh()即可启动应用上下文，在已经启动的状态下，调用 refresh()则清除缓存并重新装载配置信息，而调用close()则可关闭应用上下文。这些接口方法为容器的控制管理带来了便利，但作为开发者，我们并不需要过多关心这些方法。
+
+**第三， 更进一步理解**：
+
+***设计者在设计时AnnotationConfigApplicationContext为什么是继承GenericApplicationContext***？ 因为基于注解的配置，是不太会被运行时修改的，这意味着不需要进行动态Bean配置和刷新容器，所以只需要GenericApplicationContext。
+
+而基于XML这种配置文件，这种文件是容易修改的，需要动态性刷新Bean的支持，所以XML相关的配置必然继承AbstractRefreshableApplicationContext； 且存在多种xml的加载方式（位置不同的设计），所以必然会设计出AbstractXmlApplicationContext, 其中包含对XML配置解析成BeanDefination的过程。
+
+那么细心的你从上图可以发现AnnotationConfigWebApplicationContext却是继承了AbstractRefreshableApplicationContext而不GenericApplicationContext， ***为什么AnnotationConfigWebApplicationContext继承自AbstractRefreshableApplicationContext呢*** ？ 因为用户可以通过ApplicationContextInitializer来设置contextInitializerClasses（context-param / init-param）， 在这种情况下用户倾向于刷新Bean的，所以设计者选择让AnnotationConfigWebApplicationContext继承了AbstractRefreshableApplicationContext。（如下是源码中Spring设计者对它的解释）
+
+```java
+* <p>As an alternative to setting the "contextConfigLocation" parameter, users may
+* implement an {@link org.springframework.context.ApplicationContextInitializer
+* ApplicationContextInitializer} and set the
+* {@linkplain ContextLoader#CONTEXT_INITIALIZER_CLASSES_PARAM "contextInitializerClasses"}
+* context-param / init-param. In such cases, users should favor the {@link #refresh()}
+* and {@link #scan(String...)} methods over the {@link #setConfigLocation(String)}
+* method, which is primarily for use by {@code ContextLoader}.
+```
 

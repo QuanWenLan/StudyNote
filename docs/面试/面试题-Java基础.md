@@ -791,6 +791,39 @@ STW的原因如下：
 
 ##### 线程的虚假唤醒
 
+
+
+##### ThreadLocal的Entry为什么要继承WeakReference? 
+
+苏三说技术的回答：https://www.zhihu.com/question/458432418/answer/2486131184
+
+（1）使用InheritableThreadLocal时，如果父线程中重新set值，在子线程中能够正确的获取修改后的新值吗？
+
+不能，`InheritableThreadLocal` 的值是在线程创建时从父线程复制过来的，并且之后只会在自己的线程中改变，而不会再次从父线程中复制。所以，如果你在父线程中改变了`InheritableThreadLocal`的值，子线程中的值不会自动更新。
+
+```java
+static InheritableThreadLocal<Integer> threadLocal = new InheritableThreadLocal<>();
+
+private static void test1() {
+    threadLocal.set(10); // 初始值
+    System.out.println("父线程获取数据-初始值：" + threadLocal.get()); // 输出10
+    new Thread(() -> {
+        System.out.println("子线程获取数据：" + threadLocal.get()); // 输出10
+        threadLocal.set(20); // 子线程中修改值
+        System.out.println("子线程获取数据：" + threadLocal.get()); // 输出20
+    }).start();
+    threadLocal.set(30); // 父线程中修改值
+    System.out.println("父线程获取数据：" + threadLocal.get()); // 输出30
+    // 子线程中的值，只是在创建的时候会从父线程中复制父线程的值，后续父线程改变了，子线程是不会感知到改变的
+}
+```
+
+（2）ThreadLocal变量为什么建议要定义成static的？
+
+静态变量被所有的对象所共享，在内存中只有一个副本【存放在方法区】，它当且仅当在类初次加载时会被初始化【加final和不加final的static变量初始化的位置不一样】。而非静态变量是对象所拥有的，在创建对象的时候被初始化，存在多个副本，各个对象拥有的副本互不影响。在一个线程内，没有被static修饰的ThreadLocal变量实例，会随着所在的类多次创建而被多次实例化，虽然ThreadLocal限制了变量的作用域，但这样频繁的创建变量实例是没有必要的。
+
+因此，如果把ThreadLocal声明为某个类的实例变量（而不是静态变量），那么每创建一个该类的实例就会导致一个新的TSO（thread specific object，即与线程相关的变量）实例被创建。
+
 #### 使用线程池注意事项
 
 ##### 线程池为什么需要执行shutdown或者shutdownnow方法？

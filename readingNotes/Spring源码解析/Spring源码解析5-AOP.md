@@ -1,3 +1,5 @@
+参考 原文链接：https://pdai.tech/md/spring/spring-x-framework-aop-source-1.html
+
 #### 7 AOP  
 
 我们知道，使用**面向对象编程（OOP）**有一些弊端，**当需要为多个不具有继承关系的对象引入同一个公共行为时，例如日志、安全检测等，我们只有在每个对象里引用公共行为，这样程序中就产生了大量的重复代码，程序就不便于维护了**，所以就有了一个对面向对象编程的补充，即**面向方面编程（AOP），AOP所关注的方向是横向的，不同于OOP的纵向**。
@@ -154,6 +156,28 @@ public class AspectJTest {
 
 }
 ```
+
+###### 切入点配置
+
+Spring AOP 用户可能会经常使用 execution切入点指示符。执行表达式的格式如下：
+
+```java
+execution(modifiers-pattern? ret-type-pattern declaring-type-pattern? name-pattern(param-pattern) throws-pattern?)
+```
+
+ret-type-pattern 返回类型模式, **name-pattern名字模式和param-pattern参数模式是必选的**， 其它部分都是可选的。返回类型模式决定了方法的返回类型必须依次匹配一个连接点。 你会使用的最频繁的返回类型模式是`*`，**它代表了匹配任意的返回类型**。
+
+declaring-type-pattern, 一个全限定的类型名将只会匹配返回给定类型的方法。
+
+name-pattern 名字模式匹配的是方法名。 你可以使用`*`通配符作为所有或者部分命名模式。
+
+param-pattern 参数模式稍微有点复杂：()匹配了一个不接受任何参数的方法， 而(..)匹配了一个接受任意数量参数的方法（零或者更多）。 模式(\*)匹配了一个接受一个任何类型的参数的方法。 模式(\*,String)匹配了一个接受两个参数的方法，第一个可以是任意类型， 第二个则必须是String类型。
+
+![image-20240129161235995](media/images/image-20240129161235995.png)
+
+------
+
+著作权归@pdai所有 原文链接：https://pdai.tech/md/spring/spring-x-framework-aop.html
 
 ###### （3）创建配置文件XML是Spring的基础。 
 
@@ -413,6 +437,10 @@ public class AServiceImpl implements AService {
 
 在分析之前，创建bean的时候，有一个优化，分析如下。
 
+###### TargetSourceCreator 接口-提前创建代理类
+
+该接口的功能是：在bean实例化之前，就为类生成代理。
+
 ```java
 try {
    // Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
@@ -429,7 +457,7 @@ protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition 
         if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
             Class<?> targetType = determineTargetType(beanName, mbd);
             if (targetType != null) {
-                // 在这里面会先执行 AnnotationAwareAspectJAutoProxyCreator 覆盖的发方法
+                // 在这里面会先执行 AnnotationAwareAspectJAutoProxyCreator 覆盖的方法
                 bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
                 if (bean != null) {
                     bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
@@ -449,6 +477,51 @@ protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition 
 执行初始化之前，先执行**postProcessBeforeInstantiation**方法org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#postProcessBeforeInstantiation。执行链位置：
 
 ![image-20230303143903058](media/images/image-20230303143903058.png)
+
+**！！！但是这里执行了上面的代码的时候是返回了null**，也就是没有去加载，因为target判断出来是空的。如果这里的targetSource不为空的话则会提前返回这个代理对象。对于这个方法判断了一个属性：
+
+```java
+protected TargetSource getCustomTargetSource(Class<?> beanClass, String beanName) {
+   // We can't create fancy target sources for directly registered singletons.
+   if (this.customTargetSourceCreators != null &&
+         this.beanFactory != null && this.beanFactory.containsBean(beanName)) {
+      for (TargetSourceCreator tsc : this.customTargetSourceCreators) {
+         TargetSource ts = tsc.getTargetSource(beanClass, beanName);
+         if (ts != null) {
+            // Found a matching TargetSource.
+            if (logger.isTraceEnabled()) {
+               logger.trace("TargetSourceCreator [" + tsc +
+                     "] found custom TargetSource for bean with name '" + beanName + "'");
+            }
+            return ts;
+         }
+      }
+   }
+
+   // No custom TargetSource found.
+   return null;
+}
+```
+
+如果 this.customTargetSourceCreators 不为空则会走下面这个逻辑，不然直接返回 null。
+
+![image-20240130092918668](media/images/image-20240130092918668.png)
+
+至于上面 `TargetSource ts = tsc.getTargetSource(beanClass, beanName);` 的逻辑可以参考这个博库：https://blog.csdn.net/qq_39002724/article/details/112970421，有关于这个接口的使用案例。
+
+###### 正常的创建代理对象的位置
+
+那么最后是从那里调用了去获取aop的逻辑呢？入口如下图，最终走到 AbstractAutoProxyCreator 的 public Object postProcessAfterInitialization(@Nullable Object bean, String beanName) 方法中去获取
+
+![image-20240130093223989](media/images/image-20240130093223989.png)
+
+在方法中继续判断是否已经有了缓存，没有的话就加载，有就不加载。
+
+![image-20240130093451612](media/images/image-20240130093451612.png)
+
+随后走完整个方法返回的就是一个代理类了。
+
+![image-20240130093743321](media/images/image-20240130093743321.png)
 
 最终在这里的流程（也就是下面获取增强器的源码分析部分的流程）就已经去获取增强器并放入到了缓存 advisorsCache 中。
 
@@ -516,6 +589,8 @@ public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName
 }
 ```
 
+###### 核心步骤
+
 **核心步骤**，随后才是在调用 initializeBean 方法里面的后置处理器的 applyBeanPostProcessorsAfterInitialization 方法。在父类AbstractAutoProxyCreator的**postProcessAfterInitialization**中代码如下：
 
 ![image-20230303144624370](media/images/image-20230303144624370.png)
@@ -580,7 +655,29 @@ protected Object wrapIfNecessary(Object bean, String beanName, Object cacheKey) 
 }
 ```
 
-函数中我们已经看到了代理创建的雏形。当然，真正开始之前还需要经过一些判断，比如是否已经处理过或者是否是需要跳过的bean，而真正创建代理的代码是从getAdvicesAnd AdvisorsForBean开始的。 创建代理主要包含了两个步骤：
+###### 是否是aop基础类的判断方法 isInfrastructureClass 如下
+
+父类判断它是否是aop基础类的方法 super.isInfrastructureClass(beanClass), 本质上就是判断该类是否实现了Advice, Pointcut, Advisor或者AopInfrastructureBean接口。
+
+###### 是否应该跳过shouldSkip
+
+```java
+protected boolean shouldSkip(Class<?> beanClass, String beanName) {
+   // TODO: Consider optimization by caching the list of the aspect names
+   List<Advisor> candidateAdvisors = findCandidateAdvisors();
+   for (Advisor advisor : candidateAdvisors) {
+      if (advisor instanceof AspectJPointcutAdvisor &&
+            ((AspectJPointcutAdvisor) advisor).getAspectName().equals(beanName)) {
+         return true;
+      }
+   }
+   return super.shouldSkip(beanClass, beanName);
+}
+```
+
+findCandidateAdvisors() 方法和下面获取增强器的方法是一样的，只不过这里返回后又判断一些逻辑。
+
+函数中我们已经看到了代理创建的雏形。当然，真正开始之前还需要经过一些判断，比如是否已经处理过或者是否是需要跳过的bean，而真正创建代理的代码是从getAdvicesAndAdvisorsForBean开始的。 创建代理主要包含了两个步骤：
 
 （1）获取增强方法或者增强器；
 
@@ -628,7 +725,7 @@ protected List<Advisor> findEligibleAdvisors(Class<?> beanClass, String beanName
 
 ###### **7.3.1 获取增强器**
 
-由于我们分析的是**使用注解进行的AOP**，所以对于findCandidateAdvisors的实现其实是由**AnnotationAwareAspectJAutoProxyCreator**类完成的，我们继续跟踪AnnotationAwareAspectJAuto ProxyCreator的findCandidateAdvisors方法。 
+由于我们分析的是**使用注解进行的AOP**，所以对于findCandidateAdvisors的实现其实是由**AnnotationAwareAspectJAutoProxyCreator**类完成的，我们继续跟踪AnnotationAwareAspectJAutoProxyCreator的findCandidateAdvisors方法。 
 
 ```java 
 @Override
@@ -643,7 +740,7 @@ protected List<Advisor> findCandidateAdvisors() {
 }
 ```
 
-AnnotationAwareAspectJAutoProxyCreator间接继承了AbstractAdvisorAutoProxyCreator，在实现获取增强的方法中除了保留父类的获取配置文件中定义的增强外，同时添加了获取Bean的注解增强的功能，那么其实现正是由this.aspectJAdvisorsBuilder.buildAspectJAdvisors()来实现的。
+AnnotationAwareAspectJAutoProxyCreator间接继承了AbstractAdvisorAutoProxyCreator，在实现获取增强的方法中除了保留父类的获取配置文件中定义的增强外，同时添加了获取Bean的注解增强的功能，那么其实现正是由this.aspectJAdvisorsBuilder.buildAspectJAdvisors()来实现的。org.springframework.aop.aspectj.annotation.BeanFactoryAspectJAdvisorsBuilder#buildAspectJAdvisors
 
  在真正研究代码之前读者可以尝试着自己去想象一下解析思路，看看自己的实现与Spring是否有差别呢？或者我们一改以往的方式，先来了解函数提供的大概功能框架，读者可以在头脑中尝试实现这些功能点，看看是否有思路。
 
@@ -799,6 +896,33 @@ public List<Advisor> getAdvisors(MetadataAwareAspectInstanceFactory aspectInstan
 
    return advisors;
 }
+```
+
+函数中首先完成了对增强器的获取，包括获取注解以及根据注解生成增强的步骤，然后考虑到在配置中可能会将增强配置成延迟初始化，那么需要在首位加入同步实例化增强器以保证增强使用之前的实例化，最后是对DeclareParents注解的获取，下面将详细介绍一下每个步骤。 
+
+###### getAdvisorMethods(Class<?> aspectClass) 获取增强的方法
+
+前置的排序条件
+
+```java
+private static final Comparator<Method> METHOD_COMPARATOR; // 比较器
+
+static {
+   // Note: although @After is ordered before @AfterReturning and @AfterThrowing,
+   // an @After advice method will actually be invoked after @AfterReturning and
+   // @AfterThrowing methods due to the fact that AspectJAfterAdvice.invoke(MethodInvocation)
+   // invokes proceed() in a `try` block and only invokes the @After advice method
+   // in a corresponding `finally` block.
+   Comparator<Method> adviceKindComparator = new ConvertingComparator<>(
+         new InstanceComparator<>(
+               Around.class, Before.class, After.class, AfterReturning.class, AfterThrowing.class),
+         (Converter<Method, Annotation>) method -> {
+            AspectJAnnotation<?> ann = AbstractAspectJAdvisorFactory.findAspectJAnnotationOnMethod(method);
+            return (ann != null ? ann.getAnnotation() : null);
+         });
+   Comparator<Method> methodNameComparator = new ConvertingComparator<>(Method::getName);
+   METHOD_COMPARATOR = adviceKindComparator.thenComparing(methodNameComparator);
+}
 
 private List<Method> getAdvisorMethods(Class<?> aspectClass) {
    final List<Method> methods = new ArrayList<>();
@@ -813,7 +937,7 @@ private List<Method> getAdvisorMethods(Class<?> aspectClass) {
 }
 ```
 
-函数中首先完成了对增强器的获取，包括获取注解以及根据注解生成增强的步骤，然后考虑到在配置中可能会将增强配置成延迟初始化，那么需要在首位加入同步实例化增强器以保证增强使用之前的实例化，最后是对DeclareParents注解的获取，下面将详细介绍一下每个步骤。 
+获取方法是通过反射进行获取的，在获取全部的方法之后，会对这些方法进行排序 `methods.sort(METHOD_COMPARATOR);`，所以我们后面看到的基本上都是这个顺序的增强，然后再按照方法名进行排序，然后再遍历这些方法。
 
 ###### **1.普通增强器的获取 **
 
@@ -1046,7 +1170,7 @@ public class MethodBeforeAdviceInterceptor implements MethodInterceptor, BeforeA
       return mi.proceed();
    }
 }
-其中的属性MethodBeforeAdvice代表着前置增强的AspectJMethodBeforeAdvice，跟踪before方法：
+// 其中的属性MethodBeforeAdvice代表着前置增强的AspectJMethodBeforeAdvice，跟踪before方法：
 public class AspectJMethodBeforeAdvice extends AbstractAspectJAdvice implements MethodBeforeAdvice, Serializable {
 
    public AspectJMethodBeforeAdvice(
@@ -1187,7 +1311,7 @@ private Advisor getDeclareParentsAdvisor(Field introductionField) {
 **org.springframework.aop.framework.autoproxy.AbstractAdvisorAutoProxyCreator#findEligibleAdvisors**  
 
 ```java 
-org.springframework.aop.framework.autoproxy.AbstractAdvisorAutoProxyCreator#findAdvisorsThatCanApply  
+// org.springframework.aop.framework.autoproxy.AbstractAdvisorAutoProxyCreator#findAdvisorsThatCanApply  
 /**
 * Search the given candidate Advisors to find all Advisors that
 * can apply to the specified bean.
@@ -1207,7 +1331,7 @@ protected List<Advisor> findAdvisorsThatCanApply(
       ProxyCreationContext.setCurrentProxiedBeanName(null);
    }
 }
-org.springframework.aop.support.AopUtils#findAdvisorsThatCanApply
+// org.springframework.aop.support.AopUtils#findAdvisorsThatCanApply
 public static List<Advisor> findAdvisorsThatCanApply(List<Advisor> candidateAdvisors, Class<?> clazz) {
    if (candidateAdvisors.isEmpty()) {
       return candidateAdvisors;
@@ -1249,10 +1373,12 @@ public static boolean canApply(Advisor advisor, Class<?> targetClass, boolean ha
       return true;
    }
 }
-org.springframework.aop.support.AopUtils#canApply(org.springframework.aop.Pointcut, java.lang.Class<?>, boolean)
+//org.springframework.aop.support.AopUtils#canApply(org.springframework.aop.Pointcut, java.lang.Class<?>, boolean)
+/*
 * Can the given pointcut apply at all on the given class?
 * <p>This is an important test as it can be used to optimize
 * out a pointcut for a class.
+*/
 public static boolean canApply(Pointcut pc, Class<?> targetClass, boolean hasIntroductions) {
    Assert.notNull(pc, "Pointcut must not be null");
    if (!pc.getClassFilter().matches(targetClass)) {
@@ -1303,7 +1429,7 @@ public static boolean canApply(Pointcut pc, Class<?> targetClass, boolean hasInt
 ![image-20230303150832022](media/images/image-20230303150832022.png)
 
 ```java 
-org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#wrapIfNecessary  
+// org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#wrapIfNecessary  
 
 // Create proxy if we have advice.
 Object[] specificInterceptors = getAdvicesAndAdvisorsForBean(bean.getClass(), beanName, null);
@@ -1314,8 +1440,8 @@ if (specificInterceptors != DO_NOT_PROXY) {
    this.proxyTypes.put(cacheKey, proxy.getClass());
    return proxy;
 }
-org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#createProxy  
 
+// org.springframework.aop.framework.autoproxy.AbstractAutoProxyCreator#createProxy  
 protected Object createProxy(Class<?> beanClass, @Nullable String beanName,
       @Nullable Object[] specificInterceptors, TargetSource targetSource) {
 
@@ -1398,7 +1524,7 @@ protected Advisor[] buildAdvisors(@Nullable String beanName, @Nullable Object[] 
    }
    return advisors;
 }
-org.springframework.aop.framework.adapter.DefaultAdvisorAdapterRegistry#wrap
+// org.springframework.aop.framework.adapter.DefaultAdvisorAdapterRegistry#wrap
 public Advisor wrap(Object adviceObject) throws UnknownAdviceTypeException {
    if (adviceObject instanceof Advisor) {
       return (Advisor) adviceObject;
@@ -1834,7 +1960,7 @@ before invokepublic java.lang.String java.lang.Object.toString()
 springtest.aop.cglib.EnhancerDemo$$EnhancerByCGLIB$$c0ceece0@dcf3e99
 ```
 
-
+具体的 CGLIB 的创建代码源码分析在另一个文件中。[AOP-cglib执行源码解析](./AOP-cglib执行源码解析.md)
 
 ##### **7.4 静态AOP使用示例**  
 
