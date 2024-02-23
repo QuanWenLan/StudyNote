@@ -278,7 +278,7 @@ https://www.cnblogs.com/janehoo/p/6122958.html
 
 #### 主观下线（Subjectively Down）和 客观下线（Objectively Down）
 
-SDOWM: Objectively Down, 单个sentinel节点在down-after-milliseconds时间内没有收到redis masterping的有效回复，这个redis master进入SDOWN主观下线状态。
+SDOWM: Subjectively Down, 单个sentinel节点在down-after-milliseconds时间内没有收到redis masterping的有效回复，这个redis master进入SDOWN主观下线状态。
 
 ODOWN: Objectively Down, 接收多个（>=quorum) sentinel节点的SDOWN的确认，这个redis master进入O_DOWN客观下线状态。O_DOWN将会触发sentinel leader执行fail-over。
 
