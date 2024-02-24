@@ -2486,7 +2486,7 @@ protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd
       if (autowireNecessary) {  // 构造函数自动注入
          return autowireConstructor(beanName, mbd, null, null);
       }
-      else { 默认的无参构造函数
+      else { // 默认的无参构造函数
          return instantiateBean(beanName, mbd);
       }
    }

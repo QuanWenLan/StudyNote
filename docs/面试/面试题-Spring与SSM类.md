@@ -129,6 +129,16 @@ https://juejin.cn/post/6844904096747503629
 
 ###### 失效场景
 
+![image-20240125221330976](media/images/image-20240125221330976.png)
+
+解决方法：定义另一个类，通过这个类调用 a()，这个NEVER就会抛出异常。UserServiceBase 是代理对象。也可以将UserSerivce自己注入自己。
+
+![image-20240125221617666](media/images/image-20240125221617666.png)
+
+![image-20240125221727992](media/images/image-20240125221727992.png)
+
+
+
 1. **@Transactional 应用在非 public 修饰的方法上**。
 
    > ![image-20230613205825197](media/images/image-20230613205825197.png)
