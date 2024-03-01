@@ -723,6 +723,97 @@ synchronized 代码块是由一对monitorenter/monitorexit 指令实现的，Mon
 
 锁的升级、降级，就是 JVM 优化 synchronized 运行的机制，当 JVM 检测到不同的竞争状况时，会自动切换到适合的锁实现，这种切换就是锁的升级、降级。
 
+##### Synchronized由什么样的缺陷? Java Lock是怎么弥补这些缺陷的?
+
+- **synchronized的缺陷**
+
+1. **效率低**：锁的释放情况少，只有代码执行完毕或者异常结束才会释放锁；试图获取锁的时候不能设定超时，不能中断一个正在使用锁的线程，相对而言，Lock可以中断和设置超时
+2. **不够灵活**：加锁和释放的时机单一，每个锁仅有一个单一的条件(某个对象)，相对而言，读写锁更加灵活
+3. **无法知道是否成功获得锁**，相对而言，Lock可以拿到状态
+
+- **Lock解决相应问题**
+
+Lock类这里不做过多解释，主要看里面的4个方法:
+
+1. `lock()`: 加锁
+2. `unlock()`: 解锁
+3. `tryLock()`: 尝试获取锁，返回一个boolean值
+4. `tryLock(long,TimeUtil)`: 尝试获取锁，可以设置超时
+
+Synchronized只有锁只与一个条件(是否获取锁)相关联，不灵活，后来**Condition与Lock的结合**解决了这个问题。
+
+多线程竞争一个锁时，其余未得到锁的线程只能不停的尝试获得锁，而不能中断。高并发的情况下会导致性能下降。ReentrantLock的lockInterruptibly()方法可以优先考虑响应中断。 一个线程等待时间过长，它可以中断自己，然后ReentrantLock响应这个中断，不再让这个线程继续等待。有了这个机制，使用ReentrantLock时就不会像synchronized那样产生死锁了。
+
+**区别**
+
+- **存在层次上**
+
+synchronized: Java的关键字，在jvm层面上
+
+Lock: 是一个接口
+
+- **锁的释放**
+
+synchronized: 1、以获取锁的线程执行完同步代码，释放锁 2、线程执行发生异常，jvm会让线程释放锁
+
+Lock: 在finally中必须释放锁，不然容易造成线程死锁
+
+- **锁的获取**
+
+synchronized: 假设A线程获得锁，B线程等待。如果A线程阻塞，B线程会一直等待
+
+Lock: 分情况而定，Lock有多个锁获取的方式，大致就是可以尝试获得锁，线程可以不用一直等待(可以通过tryLock判断有没有锁)
+
+- **锁的释放（死锁产生）**
+
+synchronized: 在发生异常时候会自动释放占有的锁，因此不会出现死锁
+
+Lock: 发生异常时候，不会主动释放占有的锁，必须手动unlock来释放锁，可能引起死锁的发生
+
+- **锁的状态**
+
+synchronized: 无法判断
+
+Lock: 可以判断
+
+- **锁的类型**
+
+synchronized: 可重入 不可中断 非公平
+
+Lock: 可重入 可判断 可公平（两者皆可）
+
+- **性能**
+
+synchronized: 少量同步
+
+Lock: 大量同步
+
+Lock可以提高多个线程进行读操作的效率。（可以通过readwritelock实现读写分离） 在资源竞争不是很激烈的情况下，Synchronized的性能要优于ReetrantLock，但是在资源竞争很激烈的情况下，Synchronized的性能会下降几十倍，但是ReetrantLock的性能能维持常态；
+
+ReentrantLock提供了多样化的同步，比如有时间限制的同步，可以被Interrupt的同步（synchronized的同步是不能Interrupt的）等。在资源竞争不激烈的情形下，性能稍微比synchronized差点点。但是当同步非常激烈的时候，synchronized的性能一下子能下降好几十倍。而ReentrantLock确还能维持常态。
+
+- **调度**
+
+synchronized: 使用Object对象本身的wait 、notify、notifyAll调度机制
+
+Lock: 可以使用Condition进行线程之间的调度
+
+- **用法**
+
+synchronized: 在需要同步的对象中加入此控制，synchronized可以加在方法上，也可以加在特定代码块中，括号中表示需要锁的对象。
+
+Lock: 一般使用ReentrantLock类做为锁。在加锁和解锁处需要通过lock()和unlock()显示指出。所以一般会在finally块中写unlock()以防死锁。
+
+- **底层实现**
+
+synchronized: 底层使用指令码方式来控制锁的，映射成字节码指令就是增加来两个指令：monitorenter和monitorexit。当线程执行遇到monitorenter指令时会尝试获取内置锁，如果获取锁则锁计数器+1，如果没有获取锁则阻塞；当遇到monitorexit指令时锁计数器-1，如果计数器为0则释放锁。
+
+Lock: 底层是CAS乐观锁，依赖AbstractQueuedSynchronizer类，把所有的请求线程构成一个CLH队列。而对该队列的操作均通过Lock-Free（CAS）操作。
+
+------
+
+著作权归@pdai所有 原文链接：https://pdai.tech/md/interview/x-interview.html
+
 ##### 如何定位并修复死锁
 
 **定位死锁最常见的方式就是利用 jstack 等工具获取线程栈，然后定位互相之间的依赖关系，进而找到死锁**。如果是比较明显的死锁，往往 jstack 等就能直接定位，类似 JConsole甚至可以在图形界面进行有限的死锁检测。如果程序运行时发生了死锁，绝大多数情况下都是无法在线解决的，只能重启、修正程序本身问题。所以，代码开发阶段互相审查，或者利用工具进行预防性排查，往往也是很重要的。

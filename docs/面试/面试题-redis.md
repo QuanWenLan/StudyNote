@@ -1,5 +1,7 @@
 #### Redis
 
+[Redis 常见面试题](https://www.xiaolincoding.com/redis/base/redis_interview.html)
+
 ##### redis双写如何保持数据一致性，哨兵集群和切片集群的区别
 
 ##### redis如何处理bigkey，有什么问题
@@ -196,6 +198,8 @@ https://blog.csdn.net/weixin_38399962/article/details/101511408
 定期删除，指的是redis默认是每隔100ms就**随机抽取一些**设置了过期时间的key，检查是否过期，如果过期就删除。
 
 假设redis里放了10W个key，都设置了过期时间，你每隔几百毫秒就检查全部的key，那redis很有可能就挂了，CPU负载会很高，都消耗在检查过期的key上。注意，这里不是每隔100ms就遍历所有设置过期时间的key，那样就是一场性能灾难。实际上redis是每隔100ms就**随机抽取**一些key来检查和删除的。
+
+> 定期删除 在 3 性能和内存3-响应延迟与redis变慢了？ 文章中
 
 定期删除可能会导致很多过期的key到了时间并没有被删除掉。这个时候就可以用到惰性删除了。惰性删除是指在你获取某个key的时候，redis会检查一下，这个key如果设置了过期时间并且已经过期了，此时就会删除，不会给你返回任何东西。
 
@@ -403,9 +407,19 @@ A、B、C节点集群，B节点失败（主故障，没有替代方案）整个�
 
 
 
-[P2 秒杀抢购超卖Bug实战重现(bilibili.com)](https://www.bilibili.com/video/BV1rC4y127Np?p=2)
+
+
+#### 为什么单线程的 Redis 如何做到每秒数万 QPS ？
+
+有c的源码解释。
+
+https://mp.weixin.qq.com/s/oeOfsgF-9IOoT5eQt5ieyw
+
+
 
 #### 秒杀抢购超卖bug
+
+[P2 秒杀抢购超卖Bug实战重现(bilibili.com)](https://www.bilibili.com/video/BV1rC4y127Np?p=2)
 
 ##### 初始代码
 
