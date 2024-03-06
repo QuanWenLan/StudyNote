@@ -247,6 +247,8 @@ private void checkUnpaidOrder() {
                         updateUnpaidOrderToCancelStatus(orderDelayed.getOrderId(), Scheduler.getSystemId());
                         log.info("cancel order success!order id is : {}", orderDelayed.getOrderId());
                     }
+                    // 需要释放一下cpu的占用，防止cpu占用过高
+                    Thread.sleep(100)
                 } catch (Exception e) {
                     log.error("The delay queue for executing the timed order : " + e);
                 }
@@ -292,4 +294,6 @@ addOrderToDelayQueue(orderDelayed);
    ```
 
 6. 订单取消之后，需要将这个订单从队列中移除。
+
+这里有一个注意点：需要对订单id进行加锁处理。在后面的更新修改版本中，有关于订单的操作，取消、创建、修改、废止订单的操作都使用 Redisson 进行了一个分布式的加锁操作。因为有两三个服务器，这时jvm的加锁已经不再适用了。
 

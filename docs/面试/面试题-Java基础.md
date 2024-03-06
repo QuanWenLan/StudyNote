@@ -513,6 +513,43 @@ LinkedHashSet，**内部构建了一个记录插入顺序的双向链表**，因
 
 在遍历元素时，HashSet 性能受自身容量影响，所以初始化时，除非有必要，不然不要将其背后的 HashMap 容量设置过大。而对于 LinkedHashSet，由于其内部链表提供的方便，遍历性能只和元素多少有关系。
 
+##### Hashtable、ConcurrentHashMap  为什么不允许key、value为空？并发的map都不允许为null
+
+###### 源码层次
+
+- Hashtable
+
+至于key为null的话，在获取 int hash = key.hashCode(); 的时候就会报 java.lang.NullPointerException 异常了。value 为null的话，在put的时候就进行了判断：
+
+```java
+// Make sure the value is not null
+if (value == null) {
+    throw new NullPointerException();
+}
+```
+
+这是因为Hashtable使用的是**安全失败机制（fail-safe）**，这种机制会使你此次读到的数据不一定是最新的数据。
+
+如果你使用null值，就会使得其无法判断对应的key是不存在还是为空，因为你无法再调用一次contain(key）来对key是否存在进行判断，ConcurrentHashMap同理。
+
+- ConcurrentHashMap
+
+ConcurrentHashMap 为什么不允许key或value为空？
+
+在put的时候就判断了：
+
+```java
+if (key == null || value == null) throw new NullPointerException();
+```
+
+###### null会带来二义性
+
+不允许null值的出现的主要原因是他可能会在并发的情况下带来难以容忍的二义性。如果在HashMap等非并发容器中，你可以通过contains方法来判断，这个key是究竟不存在，还是本来就是null。**但是在并发容器中，如果允许空值的存在的话，你就没法判断真正的情况**。用作者的话说就是：在Maps或者Sets集合中允许null值的存在，就是公开邀请错误进入你的程序。而这些错误，只有在发生错误的情况下才能被发现。
+
+试想一下，**当我们首先从map中get某个key，由于map中这个key不存在，那么会返回null，这之后我们通过contains进行判断，此时如果有线程并发写入了一条value为null的值，那么contains的结果就为true**。**这样就会与真实的情况不一致了，这就是二义性**。
+
+
+
 #### 异常
 
 ##### **error和exception有什么区别?**
@@ -608,7 +645,7 @@ JVM 自己定义了信号处理函数，这样当发送 kill pid 命令（默认
 
 JDK1.8之前出现死循环的原因：可参考 [多线程下HashMap的死循环(1.7版本)](https://blog.csdn.net/dingjianmin/article/details/79780350)   [HashMap死循环](https://juejin.cn/post/6911999881150365703) [疫苗：Java HashMap的死循环 | 酷 壳 - CoolShell](https://coolshell.cn/articles/9606.html)
 
-HashMap在[多线程](https://so.csdn.net/so/search?q=多线程&spm=1001.2101.3001.7020)环境下，同时进行**put**操作，并且同时进行**扩容**时，会出现**链表环**，导致死循环。因为jdk1.8之前采用的是**头插法**，新加入的冲突元素将会插到原有链表的头部。**扩容之后，链表上的元素顺序会反过来。这也是造成死循环的原因之一**
+HashMap在多线程环境下，同时进行**put**操作，并且同时进行**扩容**时，会出现**链表环**，导致死循环。因为jdk1.8之前采用的是**头插法**，新加入的冲突元素将会插到原有链表的头部。**扩容之后，链表上的元素顺序会反过来。这也是造成死循环的原因之一**
 
 JDK1.8解决之前版本出现的死循环：
 
