@@ -1684,7 +1684,63 @@ public void test() {
 
 先暂时略过。。。
 
+这里我们可以看事务标签的一个解析过程：可以看到事务的标签是会走到自定义的解析判断中去的。
 
+![image-20240309163505631](media/images/image-20240309163505631.png)
+
+随后走到 org.springframework.beans.factory.xml.BeanDefinitionParserDelegate#parseCustomElement(org.w3c.dom.Element, org.springframework.beans.factory.config.BeanDefinition) 中来，根据事务标签对应的一个命名空间来判断用哪个解析器来解析。这里的解析器是在一开始的就已经注册进去了。
+
+```java
+public BeanDefinition parseCustomElement(Element ele, @Nullable BeanDefinition containingBd) {
+   String namespaceUri = getNamespaceURI(ele);
+   if (namespaceUri == null) {
+      return null;
+   }
+   NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
+   if (handler == null) {
+      error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
+      return null;
+   }
+   return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
+}
+```
+
+查看截图 namespaceUri = http://www.springframework.org/schema/tx, 继续往后面走，查看是具体的哪个handler。
+
+![image-20240309163709285](media/images/image-20240309163709285.png)
+
+![image-20240309163834400](media/images/image-20240309163834400.png)
+
+继续调用resolve，方法里面可以看到有一个map存储了所有的namespaceurl
+
+![image-20240309163943511](media/images/image-20240309163943511.png)
+
+###### 注册事务的一些标签的解析器
+
+在TxNamespaceHandler中调用了init方法，至于这个命名空间适合是加入到mapping的呢？
+
+```java
+public void init() {
+   registerBeanDefinitionParser("advice", new TxAdviceBeanDefinitionParser());
+   registerBeanDefinitionParser("annotation-driven", new AnnotationDrivenBeanDefinitionParser());
+   registerBeanDefinitionParser("jta-transaction-manager", new JtaTransactionManagerBeanDefinitionParser());
+}
+```
+
+随后这个对应的handler被初始化后，重新放入了mapping中：
+
+![image-20240309164440462](media/images/image-20240309164440462.png)
+
+###### 继续调用handler来解析这个标签
+
+org.springframework.beans.factory.xml.NamespaceHandlerSupport#parse 中去判断用哪个parser来解析，随后去到 AnnotationDrivenBeanDefinitionParser 中去执行解析流程了。随后就是有关于事务相关的一些源码解析了，具体可以看事务的分析。
+
+```java
+public BeanDefinition parse(Element element, ParserContext parserContext) {
+   BeanDefinitionParser parser = findParserForElement(element, parserContext);
+   return (parser != null ? parser.parse(element, parserContext) : null);
+}
+```
 
 #### 5 bean 的加载
 
@@ -2244,6 +2300,8 @@ if (bean != null) {
 
 ###### AOP在bean创建过程中的判断
 
+这里主要的判断是里面有一个对接口 TargetSource 的实现才会创建aop代理类。
+
 ```java
 // 应用实例化前的后处理器，解决指定 bean 是否有实例化前的快捷方式。 AbstractAutowireCapableBeanFactory 
 protected Object resolveBeforeInstantiation(String beanName, RootBeanDefinition mbd) {
@@ -2333,7 +2391,7 @@ protected Object doCreateBean(final String beanName, final RootBeanDefinition mb
    }
 
 
-   // Allow post-processors to modify the merged bean definition.
+   // Allow post-processors to modify the merged bean definition. 一个扩展点
    synchronized (mbd.postProcessingLock) {
       if (!mbd.postProcessed) {
          try {
@@ -2433,6 +2491,23 @@ protected Object doCreateBean(final String beanName, final RootBeanDefinition mb
 - 如果既不存在工厂方法也不存在带有参数的构造函数，则使用默认的构造函数进行bean的实例化。
 
 （3）MergedBeanDefinitionPostProcessor的应用。
+
+applyMergedBeanDefinitionPostProcessors 是spring的一个扩展点。本阶段是Spring提供的一个拓展点，通过MergedBeanDefinitionPostProcessor类型的后置处理器，可以对bean对应的BeanDefinition进行修改。Spring自身也充分利用该拓展点，做了很多初始化操作(并没有修改BeanDefinition)，比如查找标注了@Autowired、 @Resource、@PostConstruct、@PreDestory 的属性和方法，方便后续进行属性注入和初始化回调。当然，我们也可以自定义实现，用来修改BeanDefinition信息或者我们需要的初始化操作，https://blog.csdn.net/LBWNB_Java/article/details/127582973
+
+```java
+protected void applyMergedBeanDefinitionPostProcessors(RootBeanDefinition mbd, Class<?> beanType, String beanName) {
+   for (BeanPostProcessor bp : getBeanPostProcessors()) {
+      if (bp instanceof MergedBeanDefinitionPostProcessor) {
+         MergedBeanDefinitionPostProcessor bdp = (MergedBeanDefinitionPostProcessor) bp;
+         bdp.postProcessMergedBeanDefinition(mbd, beanType, beanName);
+      }
+   }
+}
+```
+
+![image-20240310141302131](media/images/image-20240310141302131.png)
+
+
 
 （4）依赖处理。
 
@@ -2724,7 +2799,7 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
 
    PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
 
-
+   // 获取bean的注入类型
    int resolvedAutowireMode = mbd.getResolvedAutowireMode();
    if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
       MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
@@ -2751,10 +2826,11 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
       for (BeanPostProcessor bp : getBeanPostProcessors()) {
          if (bp instanceof InstantiationAwareBeanPostProcessor) {
             InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
-// 对所有需要依赖的属性进行后处理
+// 对所有需要依赖的属性进行后处理，这里会完成 @Autowired @Resource 的属性填充
             PropertyValues pvsToUse = ibp.postProcessProperties(pvs, bw.getWrappedInstance(), beanName);
             if (pvsToUse == null) {
                if (filteredPds == null) {
+                   // 需要注入的属性,会过滤掉Aware接口包含的属性(通过ignoreDependencyInterface添加)
                   filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
                }
                pvsToUse = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(), beanName);
@@ -2787,6 +2863,10 @@ protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable B
 （2）根据注入类型（byName/byType），提取依赖的bean，并统一存入PropertyValues中。
 
 （3）应用InstantiationAwareBeanPostProcessor处理器的postProcessPropertyValues方法，对属性获取完毕填充前对属性的再次处理，典型应用是RequiredAnnotationBeanPostProcessor类中对属性的验证。
+
+这里这个是针对@Resource注解的注入 CommonAnnotationBeanPostProcessor，还可以有Autowired的。
+
+![image-20240310143319435](media/images/image-20240310143319435.png)
 
 （4）将所有PropertyValues中的属性填充至BeanWrapper中。代码里有几个地方是我们比较感兴趣的。
 
@@ -3030,6 +3110,8 @@ protected Object initializeBean(final String beanName, final Object bean, @Nulla
    return wrappedBean;
 }
 ```
+
+###### Aware方法
 
 **1 激活 Aware 方法** 
 

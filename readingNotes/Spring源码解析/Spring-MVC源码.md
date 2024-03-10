@@ -14,7 +14,7 @@ ViewResolver：视图解析器，负责将业务处理器返回的视图ModelAnd
 
 ### 三、SpringMVC工作流程
 
-![image-20230613211432476](file://D:/projects/StudyNote/docs/%E9%9D%A2%E8%AF%95/media/images/image-20230613211432476.png?lastModify=1691659081)
+![image-20230613211432476](media/images/image-20230613211432476.png)
 
 1、客户端发送请求，所有请求都由中央处理器DispatcherServlet处理；
 

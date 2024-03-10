@@ -65,6 +65,37 @@
 
 **当 eden 区满了的时候触发Minor GC**；**通常我们把老年代 GC 叫作 Major GC**，**将对整个堆进行的清理叫作 Full GC**，但是这个也没有那么绝对，因为不同的老年代 GC 算法其实表现差异很大，例如 CMS，“concurrent”就体现在清理工作是与工作线程一起并发运行的。
 
+[【尚硅谷JVM精讲与GC调优教程（宋红康主讲，含jvm面试真题）】] (https://www.bilibili.com/video/BV1Dz4y1A7FB/?p=29&share_source=copy_web&vd_source=3b1efacb505b91ba7db831546c052ed8) 29 讲
+
+![image-20240227232845233](media/images/image-20240227232845233.png)
+
+###### 老年代GC(Major Gc/Full GC)触发机制:
+
+- 指发生在老年代的GC，对象从老年代消失时，我们说“MajorGc”或“Fu11 GC”发生
+
+  - 出现了Major GC，经常会伴随至少一次的Minor Gc(但非绝对的，在ParallelScavenge收集器的收集策略里就有直接进行Major Gc的策略选择过程)。
+
+  - 也就是在老年代空间不足时，会先尝试触发MinorGc。如果之后空间还不足，则触发Major Gc
+
+- Major Gc的速度一般会比Minor GC慢10倍以上，STW的时间更长。
+- 如果Major Gc 后，内存还不足，就报OOM了。
+
+###### Fu11 GC触发机制:
+
+触发Fu11 GC 执行的情况有如下五种:
+
+(1)调用system.gc()时，系统建议执行Fu11 GC，但是不必然执行
+
+(2)老年代空间不足
+
+(3)方法区空间不足
+
+(4)通过Minor Gc后进入老年代的平均大小大于老年代的可用内存
+
+(5)由Eden区、survivor space0(From Space)区向survivor spacel(To Space)区复制时，对象大小大于To Space可用内存，则把该对象转存到老年代，且老年代的可用内存小于该对象大小
+
+说明:**fu11 gc是开发或调优中尽量要避免的。这样暂时时间会短一些**。
+
 ##### 有过JVM相关的命令使用吗？
 
 `jps`，`jinfo`，`jstack`
@@ -97,13 +128,21 @@ docs\java\有哪些方法可以动态生成一个类.md
 
 ##### 哪些区域可能发生OutOfMemoryError?
 
-堆内存不足是最常见的 OOM 原因之一，抛出的错误信息是“java.lang.OutOfMemoryError:Java heap space”，原因可能千奇百怪，例如，可能存在内存泄漏问题；也很有可能就是堆的大小不合理，比如我们要处理比较可观的数据量，但是没有显式指定 JVM 堆大小或者指定数值偏小；或者出现 JVM 处理引用不及时，导致堆积起来，内存无法释放等。
+**堆内存不足是最常见的 OOM 原因之一**，抛出的错误信息是“java.lang.OutOfMemoryError:Java heap space”，原因可能千奇百怪，例如，可能存在内存泄漏问题；也很有可能就是堆的大小不合理，比如我们要处理比较可观的数据量，但是没有显式指定 JVM 堆大小或者指定数值偏小；或者出现 JVM 处理引用不及时，导致堆积起来，内存无法释放等。
 
-Java 虚拟机栈和本地方法栈，这里要稍微复杂一点。如果我们写一段程序不断的进行递归调用，而且没有退出条件，就会导致不断地进行压栈。类似这种情况，JVM 实际会抛出 StackOverFlowError；当然，如果 JVM 试图去扩展栈空间的的时候失败，则会抛出 OutOfMemoryError。
+**Java 虚拟机栈和本地方法栈**，这里要稍微复杂一点。如果我们写一段程序不断的进行递归调用，而且没有退出条件，就会导致不断地进行压栈。类似这种情况，JVM 实际会抛出 StackOverFlowError；当然，如果 JVM 试图去扩展栈空间的的时候失败，则会抛出 OutOfMemoryError。
 
-对于老版本的 Oracle JDK，因为永久代的大小是有限的，并且 JVM 对永久代垃圾回收（如，常量池回收、卸载不再需要的类型）非常不积极，所以当我们不断添加新类型的时候，永久代出现 OutOfMemoryError 也非常多见，尤其是在运行时存在大量动态类型生成的场合；类似 Intern 字符串缓存占用太多空间，也会导致 OOM 问题。对应的异常信息，会标记出来和永久代相关：“java.lang.OutOfMemoryError: PermGen space”。随着元数据区的引入，方法区内存已经不再那么窘迫，所以相应的 OOM 有所改观，出现 OOM，异常信息则变成了：“java.lang.OutOfMemoryError: Metaspace”。
+**方法区**：对于老版本的 Oracle JDK，因为永久代的大小是有限的，并且 JVM 对永久代垃圾回收（如，常量池回收、卸载不再需要的类型）非常不积极，所以当我们不断添加新类型的时候，永久代出现 OutOfMemoryError 也非常多见，尤其是在运行时存在大量动态类型生成的场合；类似 Intern 字符串缓存占用太多空间，也会导致 OOM 问题。对应的异常信息，会标记出来和永久代相关：“java.lang.OutOfMemoryError: PermGen space”。随着元数据区的引入，方法区内存已经不再那么窘迫，所以相应的 OOM 有所改观，出现 OOM，异常信息则变成了：“java.lang.OutOfMemoryError: Metaspace”。[调试排错 - Java 内存分析之堆内存和MetaSpace内存 | Java 全栈知识体系 (pdai.tech)](https://www.pdai.tech/md/java/jvm/java-jvm-oom.html)
 
-直接内存不足也会导致OOM。
+**直接内存**：直接内存不足也会导致OOM。有一个参数来设置直接内存大小：-XX:MaxDirectMemorySize=100m，报错信息是java.lang.OutOfMemoryError:Direct buffer memory
+
+##### OOM如何解决
+
+1、要解决00M异常或heap space的异常，一般的手段是首先通过内存映像分析工具(如Eclipse Memory Analyzer)对dump 出来的堆转储快照进行分析，重点是确认内存中的对象是否是必要的，也就是要先分清楚到底是出现了内存泄漏(Memory Leak)还是内存溢出(Memory Overflow)。
+
+2、如果是**内存泄漏**，可进一步通过工具査看泄漏对象到GC Roots 的引用链。于是就能找到泄漏对象是通过怎样的路径与GC Roots 相关联并导致垃圾收集器无法自动回收它们的。掌握了泄漏对象的类型信息，以及GC Roots 引用链的信息，就可以比较准确地定位出泄漏代码的位置。
+
+3、如果不存在内存泄漏，换句话说就是内存中的对象确实都还必须存活着，那就应当检查虚与机器物理内存对比看是否还可以调大，从代码上检查是否拟机的堆参数(-Xmx与-Xms)，是否存在某些对象生命周期过长、持有状态时间过长的情况，尝试减少程序运行期的内存消耗。
 
 ##### 在试图分配一个100M bytes 大数组的时候发生了 OOME，但是 GC 日志显示，明明堆上还有远不止100M 的空间，你觉得可能问题的原因是什么
 
@@ -220,6 +259,26 @@ JVM 的优化方式仅仅作用在运行应用代码的时候。如果应用代�
 
 讲一下各种的类加载器，加载了什么内容，类的加载过程
 
+##### 为什么不要使用Finalize方法
+
+一个对象要被回收，需要经过两次标过程，一次是没有找到与GCRoots的引用链，它将被第一次标记。随后进行一次筛选(如果对象覆盖了finalize)，我们可以在finalize方法中去拯救(变为存活对象)。
+1、finalize方法执行线程优先级很低。如果去掉线程休眠则会先输出 i am dead。
+
+![image-20240228230103487](media/images/image-20240228230103487.png)
+
+2、finalize方法只能执行一次。后续再一次回收，对象是不能被拯救的。也就是finalize里面的方法不会执行。
+
+![image-20240228230251423](media/images/image-20240228230251423.png)
+
+可以用try-finally 替代。
+
+##### 扩容新生代为什么可以提高GC效率？
+
+![image-20240228231116686](media/images/image-20240228231116686.png)
+
+新生代空间200m，每隔5s GC一次，每次GC耗时100ms。T1+T2
+
+新生代空间400m，每隔10s GC一次，每次GC耗时200ms。但是因为间隔时间长了，假如一个A对象的存活时间是6s，在没扩容之前GC后，还存活，需要有一个赋值到s0的操作。扩容后，A对象就变成垃圾了，不需要复制这一步骤，少了T2这个时间，T1时间是远远小于T2时间的。2*T1
 ##### 如何排查JVM的问题
 
 https://juejin.cn/post/7022694129859559455

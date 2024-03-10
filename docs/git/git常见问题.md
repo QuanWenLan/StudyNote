@@ -74,3 +74,69 @@ git branch -m "原分支名" "新分支名"
 
 
 
+##### 修改 .gitignore文件
+
+原文链接：https://blog.csdn.net/sarafina527/article/details/104555842
+
+```properties
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+
+*.idea
+*.iml
+*.target/
+*.idea/
+*.mvn/
+```
+
+语法
+
+| 语法 | 含义                           |
+| :--- | :----------------------------- |
+| /    | 目录                           |
+| *    | 多个字符                       |
+| ?    | 单个字符                       |
+| []   | 多个可选字符匹配单个字符       |
+| !    | 不忽略(跟踪)匹配到的文件或目录 |
+
+3 .gitignore规则不生效
+3.1 现象
+不小心在IDE提示是否添加到git时，点了确定，发现管理了.idea、target文件夹，
+
+然后添加.gitignore文件夹，配置了以上规则，但是重新编译后，target的修改在git status还是显示了修改！？
+
+3.2 原因
+.gitignore只能忽略那些原来没有被track（之前没有add过）的文件，如果某些文件已经被纳入了版本管理中，则修改.gitignore是无效的。
+
+3.3 解决方案
+解决方法就是先把本地缓存删除（改变成未track状态），然后再提交:
+
+git rm -r --cached target
+git rm -r --cached .idea
+此后不再追踪track这两个文件夹
+
+
+
+
+

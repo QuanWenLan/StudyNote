@@ -1010,7 +1010,7 @@ if (mpvs != null && !resolveNecessary) {
 
 ![Image](media/images/Image-1637560891648.png)
 
-再次调用 addSingletonFactory() 方法的时候，其中的属性：singletonFactories 已经有了 3 个bean，它们目前都还是 ObjectFactory，记住这个是 lambda 表达式。
+再次调用 addSingletonFactory() 方法的时候，其中的属性：singletonFactories 已经有了 3 个bean，它们目前都还是 ObjectFactory，**记住这个是 lambda 表达式**！！！。
 
 ![Image](media/images/Image-1637560910696.png)
 

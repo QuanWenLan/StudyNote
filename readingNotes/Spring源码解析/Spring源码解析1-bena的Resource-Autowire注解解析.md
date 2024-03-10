@@ -271,6 +271,28 @@ public class CommonAnnotationBeanPostProcessor extends InitDestroyAnnotationBean
 
 所以它是会走到 org.springframework.context.annotation.CommonAnnotationBeanPostProcessor#postProcessProperties 中去执行的！！！从执行的debug图可以看到，会先去找到需要注入的一些属性，然后执行注入。
 
+#### @Autowired 注解是 AutowiredAnnotationBeanPostProcessor
+
+```java
+public PropertyValues postProcessProperties(PropertyValues pvs, Object bean, String beanName) {
+   InjectionMetadata metadata = findAutowiringMetadata(beanName, bean.getClass(), pvs);
+   try {
+      metadata.inject(bean, beanName, pvs);
+   }
+   catch (BeanCreationException ex) {
+      throw ex;
+   }
+   catch (Throwable ex) {
+      throw new BeanCreationException(beanName, "Injection of autowired dependencies failed", ex);
+   }
+   return pvs;
+}
+```
+
+#### 下面这些解析是 CommonAnnotationBeanPostProcessor 也就是 @Resource 注解 
+
+#### 但是两个注解调用进去的方法是同一个，所以后面会有分支1和2，对应类型和name
+
 #### 注入
 
 ![image-20231211121054908](media/images/image-20231211121054908.png)
@@ -490,7 +512,11 @@ if (matchingBeans.isEmpty()) {
 }
 String autowiredBeanName;
 Object instanceCandidate;
-// 报错位置！！！！
+// 报错位置！！！！ descriptor.resolveNotUnique(descriptor.getResolvableType(), matchingBeans); 返回的是一个异常
+/* 	public Object resolveNotUnique(ResolvableType type, Map<String, Object> matchingBeans) throws BeansException {
+		throw new NoUniqueBeanDefinitionException(type, matchingBeans.keySet());
+	}
+*/
 if (matchingBeans.size() > 1) {
     autowiredBeanName = determineAutowireCandidate(matchingBeans, descriptor);
     if (autowiredBeanName == null) {
@@ -532,13 +558,15 @@ if (!ClassUtils.isAssignableValue(type, result)) {
 return result;
 ```
 
-org.springframework.beans.factory.support.DefaultListableBeanFactory#findAutowireCandidates(@Nullable String beanName, Class<?> requiredType, DependencyDescriptor descriptor)方法中去找到合适的类，也就是**根据类型查找的核心代码**。
+org.springframework.beans.factory.support.DefaultListableBeanFactory#findAutowireCandidates(@Nullable String beanName, Class<?> requiredType, DependencyDescriptor descriptor)方法中去找到合适的类，也就是**根据类型查找的核心代码**。下面是调用过程
+
+###### findAutowireCandidates
 
 此时参数：beanName："resourceTest"；requiredType：![image-20231211143543399](media/images/image-20231211143543399.png)
 
 descriptor：![image-20231211143609335](media/images/image-20231211143609335.png)
 
-解析代码，此时 candidateNames 为 ["service2"]，
+org/springframework/beans/factory/support/DefaultListableBeanFactory.java:1470 解析代码，此时 candidateNames 为 ["service2"]，
 
 ![image-20231211143952045](media/images/image-20231211143952045.png)
 
@@ -562,6 +590,10 @@ isAutowireCandidate：这个方法从名字上就能看出来，判断这个 bea
 
 ```java
 //org.springframework.beans.factory.support.DefaultListableBeanFactory#addCandidateEntry
+	/**
+	 * Add an entry to the candidate map: a bean instance if available or just the resolved
+	 * type, preventing early bean initialization ahead of primary candidate selection.
+	 */
 private void addCandidateEntry(Map<String, Object> candidates, String candidateName,
                                DependencyDescriptor descriptor, Class<?> requiredType) {
 
@@ -877,7 +909,8 @@ protected Map<String, Object> findAutowireCandidates(
 
 ```java
 /**
-// 我们上面是   @Resource
+// 我们上面是   
+    @Resource
     private Service2 service;
     然后此时beanName是 Service2，因为注入的属性需要的 Service2 这种类型的bean
 */

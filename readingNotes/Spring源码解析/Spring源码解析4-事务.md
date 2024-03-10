@@ -956,17 +956,18 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
     BeanDefinitionParser parser = findParserForElement(element, parserContext) 返回的便是刚刚注册的 AnnotationDrivenBeanDefinitionParser 类了，继而调用 该类的 parser.parse(element, parserContext) 方法。
 
     >```java
-    >执行parse方法public BeanDefinition parseCustomElement(Element ele, @Nullable BeanDefinition containingBd) {
-    >   String namespaceUri = getNamespaceURI(ele);
-    >   if (namespaceUri == null) {
-    >      return null;
-    >   }
-    >   NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
-    >   if (handler == null) {
-    >      error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
-    >      return null;
-    >   }
-    >   return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
+    >执行parse方法
+    >public BeanDefinition parseCustomElement(Element ele, @Nullable BeanDefinition containingBd) {
+    >String namespaceUri = getNamespaceURI(ele);
+    >if (namespaceUri == null) {
+    > return null;
+    >}
+    >NamespaceHandler handler = this.readerContext.getNamespaceHandlerResolver().resolve(namespaceUri);
+    >if (handler == null) {
+    > error("Unable to locate Spring NamespaceHandler for XML schema namespace [" + namespaceUri + "]", ele);
+    > return null;
+    >}
+    >return handler.parse(ele, new ParserContext(this.readerContext, this, containingBd));
     >}
     >public class TxNamespaceHandler extends NamespaceHandlerSupport {...}
     >public abstract class NamespaceHandlerSupport implements NamespaceHandler {...}
@@ -982,13 +983,13 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
     >
     >```java
     >public BeanDefinition parse(Element element, ParserContext parserContext) {
-    >   BeanDefinitionParser parser = findParserForElement(element, parserContext);
-    >   return (parser != null ? parser.parse(element, parserContext) : null);
+    >BeanDefinitionParser parser = findParserForElement(element, parserContext);
+    >return (parser != null ? parser.parse(element, parserContext) : null);
     >}
     >```
     >
     >最后又到了AnnotationDrivenBeanDefinitionParser中去执行了。
-
+    
 22. 随后就走到了判断 mode 是 aspectj 还是 proxy 的地方，往下走就走到了
     AopAutoProxyConfigurer.configureAutoProxyCreator(element, parserContext);解析的地放了
 
@@ -1011,14 +1012,17 @@ BeanFactoryTransactionAttributeSourceAdvisor作为Advisor的实现类，自然�
 
 26. 随后添加了文中提到的3个bean了，到目前位置，beanDefinitionsMap 一共有5个bena被注册进去了
     TransactionalEventListenerFactory
+    
     InfrastructureAdvisorAutoProxyCreator
-
+    
     AnnotationTransactionAttributeSource
+    
     TransactionInterceptor
+    
     BeanFactoryTransactionAttributeSourceAdvisor
-
+    
     ![image-20211126155406191](media/images/image-20211126155406191.png)
-
+    
 27. 最后回到一开始的调用方法 obtainFreshBeanFactory(); 这时候已经初始化完了 BeanFactory 为 DefaultListableBeanFactory 了。
 
 ---

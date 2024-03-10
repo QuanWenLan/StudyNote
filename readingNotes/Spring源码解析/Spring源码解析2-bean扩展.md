@@ -1,4 +1,4 @@
-6 容器的功能扩展 
+#### 6 容器的功能扩展 
 
 在前面的章节中我们一直以BeanFacotry接口以及它的默认实现类XmlBeanFactory为例进行分析，但是， Spring中还提供了另一个接口ApplicationContext，用于扩展BeanFacotry中现有的功能。
 
@@ -141,7 +141,7 @@ protected void prepareRefresh() {
    }
 
    // Initialize any placeholder property sources in the context environment.
-   initPropertySources(); 留给子类覆盖
+   initPropertySources(); // 留给子类覆盖
 
    // Validate that all properties marked as required are resolvable:
    // see ConfigurablePropertyResolver#setRequiredProperties 验证需要的属性文件是否都已经放入环境中
@@ -199,7 +199,7 @@ protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
    refreshBeanFactory();
    return getBeanFactory();
 }
-实现功能委托给了 refreshBeanFactory() 方法
+// 实现功能委托给了 refreshBeanFactory() 方法
 @Override
 protected final void refreshBeanFactory() throws BeansException {
    if (hasBeanFactory()) {
@@ -237,7 +237,7 @@ protected void customizeBeanFactory(DefaultListableBeanFactory beanFactory) {
       beanFactory.setAllowCircularReferences(this.allowCircularReferences);
    }
 }
-这里没有书中的这两个注解的解析代码，当前版本：5.2.4，书里面应该是3.x。但是类还是有的： QualifierAnnotationAutowireCandidateResolver 
+// 这里没有书中的这两个注解的解析代码，当前版本：5.2.4，书里面应该是3.x。但是类还是有的： QualifierAnnotationAutowireCandidateResolver 
 ```
 
 ###### **6.4.2 加载 BeanDefinition** 
@@ -484,9 +484,9 @@ public class DatePropertyEditorRegistrar implements PropertyEditorRegistrar {
 
 ###### **6.5.3 添加ApplicationContextAwareProcessor处理器** 
 
-了解了属性编辑器的使用后，接下来我们继续通过AbstractApplicationContext的prepareBeanFactory方法的主线来进行函数跟踪。对于beanFactory.addBeanPostProcessor(newApplicationContextAwareProcessor(this))其实主要目的就是注册个BeanPostProcessor，而真正的逻辑还是在ApplicationContextAwareProcessor中。 
+了解了属性编辑器的使用后，接下来我们继续通过AbstractApplicationContext的prepareBeanFactory方法的主线来进行函数跟踪。对于beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this))其实主要目的就是注册个BeanPostProcessor，而真正的逻辑还是在ApplicationContextAwareProcessor中。 
 
- ApplicationContextAwareProcessor实现BeanPostProcessor接口，我们回顾下之前讲过的内容，在bean实例化的时候，也就是Spring激活bean的init-method的前后，会调用BeanPost Processor的postProcessBeforeInitialization方法和postProcessAfterInitialization方法。
+ ApplicationContextAwareProcessor实现BeanPostProcessor接口，我们回顾下之前讲过的内容，在bean实例化的时候，也就是Spring激活bean的init-method的前后，会调用BeanPostProcessor的postProcessBeforeInitialization方法和postProcessAfterInitialization方法。
 
 同样，对于ApplicationContextAwareProcessor我们也关心这两个方法。**当前版本里面注册的不是 这个类**，而是beanFactory.addBeanPostProcessor(new ApplicationListenerDetector(this));猜测应该放到别的方法中去了
 
@@ -546,7 +546,7 @@ BeanFacotry作为Spring中容器功能的基础，用于存放所有已经加载
 </bean>
 ```
 
-其中竟然出现了变量引用：${bean.message}。这就是Spring的分散配置，可以在另外的配置文件中为bean.message指定值。
+其中竟然出现了变量引用：${app.mes}。这就是Spring的分散配置，可以在另外的配置文件中为app.mes指定值。
 
 如在bean.property配置如下定义：**“app.mes=Hi,can you find me?”**当访问名为message的bean时，mes属性就会被置为字符串“ Hi,can you find me?”，但Spring框架是怎么知道存在这样的配置文件呢？这就要靠**PropertyPlaceholderConfigurer**这个类的bean:
 
@@ -621,7 +621,7 @@ public static void invokeBeanFactoryPostProcessors(
 
       // Do not initialize FactoryBeans here: We need to leave all regular beans
       // uninitialized to let the bean factory post-processors apply to them!  
-不要在这里初始化FactoryBeans:我们需要不初始化所有常规bean，以便让bean工厂的后处理器应用于它们!
+// 不要在这里初始化FactoryBeans:我们需要不初始化所有常规bean，以便让bean工厂的后处理器应用于它们!
       // Separate between BeanDefinitionRegistryPostProcessors that implement
       // PriorityOrdered, Ordered, and the rest. 分离实现了 PriorityOrdered 接口和 Ordered 接口的 BeanDefinitionRegistryPostProcessors
       List<BeanDefinitionRegistryPostProcessor> currentRegistryProcessors = new ArrayList<>();

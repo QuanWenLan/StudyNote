@@ -2,6 +2,8 @@
 
 [史上最全ConcurrentHashMap源码解析，含6大核心方法 ](https://juejin.cn/post/6912309950693769230)
 
+[美团二面：聊聊ConcurrentHashMap的存储流程](https://juejin.cn/post/7233758531378397240)
+
 ### **并发环境下为什么使用ConcurrentHashMap**
 
 1. HashMap在高并发的环境下，执行put操作会导致HashMap的Entry链表形成环形数据结构，从而导致Entry的next节点始终不为空，因此产生死循环获取Entry
