@@ -1216,6 +1216,19 @@ protected Object invokeWithinTransaction(Method method, @Nullable Class<?> targe
 
 从上面的函数中，我们尝试整理下事务处理的脉络，在Spring中支持两种事务处理的方式，分别是**声明式事务处理与编程式事务处理**，两者相对于开发人员来讲差别很大，但是对于Spring中的实现来讲，大同小异。
 
+对于使用了注解的@Transactional()，走到这里属性内容：TransactionAttribute txAttr, TransactionAttributeSource tas = getTransactionAttributeSource(); 
+
+![image-20240311230353811](media/images/image-20240311230353811.png)
+
+```java
+PlatformTransactionManager ptm = asPlatformTransactionManager(tm);
+final String joinpointIdentification = methodIdentification(method, targetClass, txAttr);
+```
+
+![image-20240311230723511](media/images/image-20240311230723511.png)
+
+这里的判断 if (txAttr == null || !(ptm instanceof CallbackPreferringPlatformTransactionManager))  后面的为true，走到了这个if里面去了。因为ptm是 DataSourceTransactionManager, instanceof 判断为false。
+
 ##### 两种事务类型
 
 上面的事务使用的声明式的。[Spring笔记(4) - Spring的编程式事务和声明式事务详解](https://www.cnblogs.com/huangrenhui/p/13261655.html) 
@@ -1313,15 +1326,23 @@ protected TransactionInfo createTransactionIfNecessary(@Nullable PlatformTransac
 
 对于传入的TransactionAttribute类型的参数txAttr，当前的实际类型是RuleBasedTransactionAttribute，是由获取事务属性时生成，主要用于数据承载，而这里之所以使用DelegatingTransactionAttribute进行封装，当然是提供了更多的功能。
 
-**（2）获取事务。**
+（2）获取事务。
 
 （3）构建事务信息。
+
+![image-20240311231505888](media/images/image-20240311231505888.png)
 
 ##### 1 获取事务 
 
 Spring中使用getTransaction来处理事务的准备工作，包括事务获取以及信息的构建。
 
 > org.springframework.transaction.support.AbstractPlatformTransactionManager#getTransaction
+
+###### 获取事务连接信息
+
+判断是否存在当前事务之前，查看事务的信息
+
+![image-20240311231818895](media/images/image-20240311231818895.png)
 
 ```java
 public final TransactionStatus getTransaction(@Nullable TransactionDefinition definition)
@@ -1379,6 +1400,8 @@ public final TransactionStatus getTransaction(@Nullable TransactionDefinition de
 }
 ```
 
+###### 判断当前是否存在事务
+
 代码（1）出，此时调用的是：
 
 ```java
@@ -1391,6 +1414,8 @@ protected boolean isExistingTransaction(Object transaction) {
 这里有不同的数据源：
 
 ![image-20211125122813570](media/images/image-20211125122813570.png)
+
+###### 开启事务
 
 上面 startTransaction 调用的：
 
@@ -1467,11 +1492,12 @@ protected void doBegin(Object transaction, TransactionDefinition definition) {
       // Switch to manual commit if necessary. This is very expensive in some JDBC drivers,
       // so we don't want to do it unnecessarily (for example if we've explicitly
       // configured the connection pool to set it already). 由spring控制提交
-      if (con.getAutoCommit()) {
+      if (con.getAutoCommit()) { // 如果自动提交为true的话
          txObject.setMustRestoreAutoCommit(true);
          if (logger.isDebugEnabled()) {
             logger.debug("Switching JDBC Connection [" + con + "] to manual commit");
          }
+          // 设置自动提交为false ===============================
          con.setAutoCommit(false);
       }
 // 在事务开始后立即准备事务Connection 
@@ -1555,6 +1581,8 @@ public static Integer prepareConnectionForTransaction(Connection con, @Nullable 
 ```
 
 3. 更改默认的提交设置。
+
+###### 设置自动提交为false
 
 如果事务属性是自动提交，那么需要改变这种设置，而将提交操作委托给Spring来处理。
 
@@ -1841,7 +1869,51 @@ public final void rollback(TransactionStatus status) throws TransactionException
 }
 ```
 
-processRollback 的具体实现，（目前不懂啊啊啊啊）
+processRollback 的具体实现，（明白了一点，哈哈）
+
+###### 保存点（savepoint）
+
+首先这里有一个保存点的概念，保存点是的使用地方：
+
+```java
+public void createAndHoldSavepoint() throws TransactionException {
+   setSavepoint(getSavepointManager().createSavepoint());
+}
+```
+
+具体这个方法是在 private TransactionStatus **handleExistingTransaction**(TransactionDefinition definition, Object transaction, boolean debugEnabled) 的时候创建的，具体的条件则是：
+
+```java
+   // PROPAGATION_NESTED 传播类型，嵌入式的事务处理
+    // 以嵌套方式运行，如果当前事务存在，行为和PROPAGATION_REQUIRED一样，否则没有事务
+		if (definition.getPropagationBehavior() == TransactionDefinition.PROPAGATION_NESTED) {
+			if (!isNestedTransactionAllowed()) {
+				throw new NestedTransactionNotSupportedException(
+						"Transaction manager does not allow nested transactions by default - " +
+						"specify 'nestedTransactionAllowed' property with value 'true'");
+			}
+			if (debugEnabled) {
+				logger.debug("Creating nested transaction with name [" + definition.getName() + "]");
+			}
+			if (useSavepointForNestedTransaction()) {
+				// Create savepoint within existing Spring-managed transaction,
+				// through the SavepointManager API implemented by TransactionStatus.
+				// Usually uses JDBC 3.0 savepoints. Never activates Spring synchronization. 如果没有可以使用保存点的方式控制事务回滚，那么在嵌入式事务的建立初始建立保存点
+				DefaultTransactionStatus status =
+						prepareTransactionStatus(definition, transaction, false, false, debugEnabled, null);
+				status.createAndHoldSavepoint();
+				return status;
+			}
+			else {
+				// Nested transaction through nested begin and commit/rollback calls.
+				// Usually only for JTA: Spring synchronization might get activated here
+				// in case of a pre-existing JTA transaction. 有些情况不能使用保存点
+				return startTransaction(definition, transaction, debugEnabled, null);
+			}
+		}
+```
+
+useSavepointForNestedTransaction()默认是true，至于false则是JtaTransactionManager实现的时候，所以如果有嵌套事务的时候则会创建一个保存点。
 
 ```java
 private void processRollback(DefaultTransactionStatus status, boolean unexpected) {
@@ -1852,7 +1924,7 @@ private void processRollback(DefaultTransactionStatus status, boolean unexpected
           // 激活所有 TransactionSynchronization 中对应的方法
          triggerBeforeCompletion(status);
 
-         if (status.hasSavepoint()) {
+         if (status.hasSavepoint()) { // 这里就是判断之前是否有设置保存点，也就是嵌套事务的形式了
             if (status.isDebug()) {
                logger.debug("Rolling back transaction to savepoint");
             }
@@ -1957,7 +2029,7 @@ public void rollbackToSavepoint(Object savepoint) throws TransactionException {
 }
 ```
 
-- 当之前已经保存的事务信息中的事务为新事物，那么直接回滚。常用于单独事务的处理。对于没有保存点的回滚，Spring同样是使用底层数据库连接提供的API来操作的。由于我们使用的是DataSourceTransactionManager，那么doRollback函数会使用此类中的实现
+- 当之前已经保存的事务信息中的事务为新事务，那么直接回滚。常用于单独事务的处理。对于没有保存点的回滚，Spring同样是使用底层数据库连接提供的API来操作的。由于我们使用的是DataSourceTransactionManager，那么doRollback函数会使用此类中的实现
 
   ```java
   protected void doRollback(DefaultTransactionStatus status) {
@@ -1975,7 +2047,7 @@ public void rollbackToSavepoint(Object savepoint) throws TransactionException {
   }
   ```
 
-- 当前事务信息中表明是存在事务的，又不属于以上两种情况，多数用于JTA，只做回滚标识，等到提交的时候统一不提交。
+- 当前事务信息中表明是存在事务的，又不属于以上两种情况，多数用于**JTA**，只做回滚标识，等到提交的时候统一不提交。
 
 ##### 3 回滚后的信息清除
 
