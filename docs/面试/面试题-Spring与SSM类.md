@@ -583,3 +583,13 @@ public class TestConfiguration {
 先说原因：通过@Configuration方式，最终生成的是TestConfiguration的cglib代理类，此时Alarm中的AlarmDataHistory对象，和通过alarmDataHistory()返回AlarmDataHistory对象，是spring容器的同一个对象。
 而使用@Component时，每次生成的都是新的对象。
 
+
+
+##### @Autowired 注解失效
+
+1. 没有给类加上对应的注解：@Service、@Component、@Configuration、@Controller
+2. 该属性是static 属性**@Autowired** **private** **static** TestController testController;
+3. 包没有被扫描到
+4. 使用了new出来的对象，不是spring的代理对象
+5. 
+

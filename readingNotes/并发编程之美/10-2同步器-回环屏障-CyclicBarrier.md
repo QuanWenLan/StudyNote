@@ -366,8 +366,7 @@ publicclass BankWaterService implements Runnable {
 }
 ```
 
-使用线程池创建4个线程，分别计算每个sheet里的数据，每个sheet计算结果是1，再由
-BankWaterService线程汇总4个sheet计算出的结。
+使用线程池创建4个线程，分别计算每个sheet里的数据，每个sheet计算结果是1，再由BankWaterService线程汇总4个sheet计算出的结。
 
  
 

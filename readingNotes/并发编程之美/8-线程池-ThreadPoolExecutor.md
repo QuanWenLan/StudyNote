@@ -123,11 +123,10 @@ public ThreadPoolExecutor(int corePoolSize,
 
   存活时间。如果当前线程池中的线程数量比核心线程数量多，并且是闲置状态，则这些闲置的线程能存活的最大时间。
 
-- **ThreadFactory**：创建线程的工厂，可以通过线程工厂给每个创建出来的线程设置更有意义的名字。使用开源框架guava提供的ThreadFactoryBuilder可以快速给线程池里的线
-  程设置有意义的名字，代码如下：
-
+- **ThreadFactory**：创建线程的工厂，可以通过线程工厂给每个创建出来的线程设置更有意义的名字。使用开源框架guava提供的ThreadFactoryBuilder可以快速给线程池里的线程设置有意义的名字，代码如下：
+  
   `new ThreadFactoryBuilder().setNameFormat("XX-task-%d").build();  `  
-
+  
 - **RejectedExecutionHandler**：
 
   饱和策略，当队列满并且线程个数达到maximunPoolSize后采取的策略，比如
@@ -152,7 +151,7 @@ public ThreadPoolExecutor(int corePoolSize,
 
 1. 如果当前运行的线程少于**核心线程数 corePoolSize**，则创建新线程来执行任务。（注意，执行这一步骤需要获取全局锁）
 2. 如果运行的线程等于或者多于**核心线程数 corePoolSize**，则将任务加入 **任务队列workQueue**。
-3. 如果**任务队列workQueue**已满，创建新的线程来处理任务 。（注意，执行这一步骤需要获取全局锁）
+3. 如果**任务队列workQueue**已满，创建新的线程来处理任务。（注意，执行这一步骤需要获取全局锁）
 4. 如果创建新线程使当前总线程数超过**最大线程数maximumPoolSize**，任务将被拒绝，**线程池拒绝策略handler**执行。
 
 ###### ThreadPoolExecutor执行示意图  
@@ -310,7 +309,7 @@ private boolean addWorker(Runnable firstTask, boolean core) {
                 // Recheck while holding lock.
                 // Back out on ThreadFactory failure or if
                 // shut down before lock acquired.
-                // （8.3）重新检查线程池状态，以避免在换取锁前调用了 shutdown 接口
+                // （8.3）重新检查线程池状态，以避免在获取锁前调用了 shutdown 接口
                 int rs = runStateOf(ctl.get());
 
                 if (rs < SHUTDOWN ||
@@ -361,7 +360,7 @@ if (rs >= SHUTDOWN &&
 
 代码（6）在下面几种情况下会返回 false：
 
-- 当前线程池状态为STOP、TIDYING或TERMINATED 。
+- 当前线程池状态为STOP、TIDYING或TERMINATED。
 - 当前线程池状态为SHUTDOWN并且已经有了第一个任务。
 - 当前线程池状态为SHUTDOWN并且任务队列为空。
 
@@ -543,13 +542,11 @@ public List<Runnable> shutdownNow() {
 
 可以通过 `Runtime.getRuntime().availableProcessors()`方法获得当前设备的CPU个数。  
 
-**优先级不同的任务**可以使用优先级队列PriorityBlockingQueue来处理。它可以让优先级高
-的任务先执行。
+**优先级不同的任务**可以使用优先级队列PriorityBlockingQueue来处理。它可以让优先级高的任务先执行。
 
 **执行时间不同的任务**可以交给不同规模的线程池来处理，或者可以使用优先级队列，让执行时间短的任务先执行。  
 
-**依赖数据库连接池的任务**，因为线程提交SQL后需要等待数据库返回结果，等待的时间越
-长，则CPU空闲时间就越长，那么线程数应该设置得越大，这样才能更好地利用CPU。
+**依赖数据库连接池的任务**，因为线程提交SQL后需要等待数据库返回结果，等待的时间越长，则CPU空闲时间就越长，那么线程数应该设置得越大，这样才能更好地利用CPU。
 
  **建议使用有界队列**。有界队列能增加系统的稳定性和预警能力，可以根据需要设大一点儿，比如几千。
 
@@ -576,7 +573,7 @@ public void request(List<Id> ids) {
 
 在for循环中创建线程池，那么每次执行该方法时，入参的list长度有多大就会创建多少个线程池，并且方法执行完后也没有及时调用shutdown()方法将线程池销毁
 
-这样的话，随着不断有请求进来，线程池占用的内存会越来越多，就会导致频繁fullGC甚至OOM。每次方法调用都创建线程池是很不合理的，因为这和自己频繁创建、销毁线程没有区别，不仅没有利用线程池的优势，反而还会耗费线程池所需的更多资源.
+这样的话，随着不断有请求进来，线程池占用的内存会越来越多，就会导致频繁fullGC甚至OOM。每次方法调用都创建线程池是很不合理的，因为这和自己频繁创建、销毁线程没有区别，不仅没有利用线程池的优势，反而还会耗费线程池所需的更多资源。
 
 ##### 案例2 谨慎使用默认的线程池静态方法
 
@@ -587,13 +584,11 @@ Executors.newCachedThreadPool();       //创建一个线程池，线程池容量
 ```
 
 上述三个默认线程池的风险点：
-newSingleThreadExecutor将corePoolSize和maximumPoolSize都设置为1，也使用的LinkedBlockingQueue
-
-LinkedBlockingQueue默认容量为`Integer.MAX_VALUE=2147483647`，对于真正的机器来说，可以被认为是无界队列
+newSingleThreadExecutor将corePoolSize和maximumPoolSize都设置为1，也使用的LinkedBlockingQueue。LinkedBlockingQueue默认容量为`Integer.MAX_VALUE=2147483647`，对于真正的机器来说，可以被认为是无界队列。
 
 - newFixedThreadPool和newSingleThreadExecutor在运行的线程数超过corePoolSize时，后来的请求会都被放到阻塞队列中等待，因为阻塞队列设置的过大，后来请求不能快速失败而长时间阻塞，就可能造成请求端的线程池被打满，拖垮整个服务。
 
-newCachedThreadPool将corePoolSize设置为0，将maximumPoolSize设置为`Integer.MAX_VALUE`，阻塞队列使用的SynchronousQueue，SynchronousQueue不会保存等待执行的任务
+- newCachedThreadPool将corePoolSize设置为0，将maximumPoolSize设置为`Integer.MAX_VALUE`，阻塞队列使用的SynchronousQueue，SynchronousQueue不会保存等待执行的任务
 
 - 所以newCachedThreadPool是来了任务就创建线程运行，而maximumPoolSize相当于无限的设置，使得创建的线程数可能会将机器内存占满。
 

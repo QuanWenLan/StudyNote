@@ -306,34 +306,34 @@ GET /_cat/health: 查看 es 健康状况
 GET /_cat/master: 查看主节点
 GET /_cat/indices: 查看所有索引
 
-// 查询汇总：
-/_cat/allocation
-/_cat/shards
-/_cat/shards/{index}
-/_cat/master
-/_cat/nodes
-/_cat/tasks
-/_cat/indices
-/_cat/indices/{index}
-/_cat/segments
-/_cat/segments/{index}
-/_cat/count
-/_cat/count/{index}
-/_cat/recovery
-/_cat/recovery/{index}
-/_cat/health
-/_cat/pending_tasks
-/_cat/aliases
-/_cat/aliases/{alias}
-/_cat/thread_pool
-/_cat/thread_pool/{thread_pools}
-/_cat/plugins
-/_cat/fielddata
-/_cat/fielddata/{fields}
-/_cat/nodeattrs
-/_cat/repositories
-/_cat/snapshots/{repository}
-/_cat/templates
+// 查询汇总：gpt给的
+/_cat/allocation     // 显示每个节点上磁盘空间的分配情况
+/_cat/shards         // 显示每个索引的分片分配情况
+/_cat/shards/{index} // 显示特定索引的分片分配情况
+/_cat/master         // 显示当前选举为主节点的节点信息
+/_cat/nodes          // 显示集群中每个节点的信息
+/_cat/tasks          // 显示当前正在执行的任务列表
+/_cat/indices        // 显示集群中每个索引的信息
+/_cat/indices/{index}// 显示特定索引的信息
+/_cat/segments       // 显示每个索引的分段信息
+/_cat/segments/{index} // 显示特定索引的分段信息
+/_cat/count          // 显示集群中每个索引的文档数量
+/_cat/count/{index}  // 显示特定索引的文档数量
+/_cat/recovery       // 显示正在进行中的索引恢复过程
+/_cat/recovery/{index} // 显示特定索引的恢复过程
+/_cat/health         // 显示集群的健康状况
+/_cat/pending_tasks  // 显示当前挂起的任务列表
+/_cat/aliases        // 显示集群中的所有别名
+/_cat/aliases/{alias}// 显示特定别名的信息
+/_cat/thread_pool    // 显示每个节点线程池的信息
+/_cat/thread_pool/{thread_pools} // 显示特定线程池的信息
+/_cat/plugins        // 显示当前加载的插件信息
+/_cat/fielddata      // 显示每个字段的fielddata使用情况
+/_cat/fielddata/{fields} // 显示指定字段的fielddata使用情况
+/_cat/nodeattrs      // 显示每个节点的自定义属性
+/_cat/repositories   // 显示备份存储库的信息
+/_cat/snapshots/{repository} // 显示特定备份存储库中的快照信息
+/_cat/templates      // 显示当前索引模板的信息
 ```
 
 #### copy为 cURL
@@ -688,7 +688,27 @@ POST /index1,index2,index3/_search
 POST /index*,-index3/_search
 ```
 
-上面表明，我们可以针对所有以 index 为开头的索引来进行搜索，但是排除 index3 索引。
+上面表明，我们可以针对所有以 index 为开头的索引来进行搜索，但是排除 index3 索引。还可以加上索引的权重boost
+
+```json
+GET /_search
+{
+  "indices_boost": [
+    { "my-index-000001": 1.4 },
+    { "my-index-000002": 1.3 }
+  ]
+}
+// 或
+GET /_search
+{
+  "indices_boost": [
+    { "my-alias":  1.4 },
+    { "my-index*": 1.3 }
+  ]
+}
+```
+
+
 
 #### 更新文档
 
@@ -880,6 +900,8 @@ https://www.elastic.co/guide/en/elasticsearch/reference/current/getting-started-
 
 ##### 全部匹配 match_all
 
+##### _source
+
 ```javascript
 GET bank/_search
 {
@@ -898,6 +920,171 @@ GET bank/_search
 ```
 
 查询所有记录，按照 account_number 升序排序，只返回第 11 条记录到第 20 条记录，只显示 balance 和 firstname 字段和 account_number 字段。
+
+```json
+GET twitter/_search
+{
+  "_source": {
+    "includes": ["user", "city"]
+  },
+  "query": {
+    "match_all": {
+    }
+  }
+}
+// 或
+GET twitter/_search
+{
+  "_source": ["user", "city"],
+  "query": {
+    "match_all": {
+    }
+  }
+}
+```
+
+在实际的使用中，我们可以使用 fields 来指定返回的字段，而不用 _source。这样做更加高效。上面的搜索可以写成如下的格式：
+
+```json
+GET twitter/_search
+{
+  "_source": false,
+  "fields": ["user", "city"],
+  "query": {
+    "match_all": {
+    }
+  },
+  "from": 0,
+  "size": 1
+}
+// 结果
+{
+  "took" : 2,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 6,
+      "relation" : "eq"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : 1.0,
+        "fields" : {
+          "city" : [
+            "北京"
+          ],
+          "user" : [
+            "双榆树-张三"
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+还可以用上通配符来匹配：
+
+```json
+GET twitter/_search
+{
+  "_source": {
+    "includes": [
+      "user*",
+      "location*"
+    ],
+    "excludes": [
+      "*.lat"
+    ]
+  },
+  "query": {
+    "match_all": {}
+  }
+}
+```
+
+##### _count
+
+我们经常会查询我们的索引里到底有多少文档，那么我们可以使用_count重点来查询：
+
+```json
+GET twitter/_count
+// 结果
+{
+  "count" : 6,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  }
+}
+// 如果我们想知道满足条件的文档的数量，我们可以采用如下的格式：
+GET twitter/_count
+{
+  "query": {
+    "match": {
+      "city": "北京"
+    }
+  }
+}
+```
+
+##### _settings
+
+我们可以通过如下的接口来获得一个 index 的 settings
+
+```json
+GET twitter/_settings
+// 
+{
+  "twitter" : {
+    "settings" : {
+      "index" : {
+        "routing" : {
+          "allocation" : {
+            "include" : {
+              "_tier_preference" : "data_content"
+            }
+          }
+        },
+        "number_of_shards" : "1",
+        "provided_name" : "twitter",
+        "creation_date" : "1710230758103",
+        "number_of_replicas" : "1",
+        "uuid" : "xqVmCrisQGGZc1aWHiNfcw",
+        "version" : {
+          "created" : "7140099"
+        }
+      }
+    }
+  }
+}
+```
+
+从这里我们可以看到我们的 twitter 索引有多少个 shards 及多少个 replicas。我们也可以通过如下的接口来设置：
+
+```json
+PUT twitter
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  }
+}
+```
+
+一旦我们把 number_of_shards 定下来了，我们就不可以修改了，除非把 index 删除，并重新 index 它。这是因为每个文档存储到哪一个 shard 是和 number_of_shards这 个数值有关的。一旦这个数值发生改变，那么之后寻找那个文档所在的 shard 就会不准确。
 
 ##### 匹配查询 match
 
@@ -1013,6 +1200,307 @@ GET bank/_search
 
 ```
 
+###### min_score 指定最小分数
+
+```json
+// 这里的数据在 删除索引并重新映射案例 部分
+GET twitter/_search?filter_path=**.hits
+{
+  "min_score": 1.0,
+  "fields": [
+    "message"
+  ], 
+  "query": {
+    "match": {
+      "message": "出"
+    }
+  },
+  "_source": false
+}
+//
+{
+  "hits" : {
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "2",
+        "_score" : 1.0764678,
+        "fields" : {
+          "message" : [
+            "出发，下一站云南！"
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+GET twitter/_search?q=city:"北京"
+
+```json
+"hits" : [
+  {
+    "_index" : "twitter",
+    "_type" : "_doc",
+    "_id" : "1",
+    "_score" : 0.48232412,
+    "_source" : {
+      "user" : "双榆树-张三",
+      "message" : "今儿天气不错啊，出去转转去",
+      "uid" : 2,
+      "age" : 20,
+      "city" : "北京",
+      "province" : "北京",
+      "country" : "中国",
+      "address" : "中国北京市海淀区",
+      "location" : {
+        "lat" : "39.970718",
+        "lon" : "116.325747"
+      }
+    }
+  }
+ ...
+]
+```
+
+[Elasticsearch: 使用 URI Search (csdn.net)](https://elasticstack.blog.csdn.net/article/details/103274254)
+
+不需要score的话可以，因为 term 不会被分词，在这里我们使用了city.keyword，这个被索引的时候没有分词.
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "bool": {
+      "filter": {
+        "term": {
+          "city.keyword": "北京"
+        }
+      }
+    }
+  }
+}
+// 
+{
+  "took" : 0,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 5,
+      "relation" : "eq"
+    },
+    "max_score" : 0.0,
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : 0.0,
+        "_source" : {
+          "user" : "双榆树-张三",
+          "message" : "今儿天气不错啊，出去转转去",
+          "uid" : 2,
+          "age" : 20,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市海淀区",
+          "location" : {
+            "lat" : "39.970718",
+            "lon" : "116.325747"
+          }
+        }
+      },
+ 
+   ...
+}
+```
+
+等同操作
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "term": {
+          "city.keyword": {
+            "value": "北京"
+          }
+        }
+      }
+    }
+  }
+}
+// 使用 match query 时，默认的操作是 OR，我们可以做如下的查询：
+GET twitter/_search
+{
+  "query": {
+    "match": {
+      "user": {
+        "query": "朝阳区-老贾",
+        "operator": "or"
+      }
+    }
+  }
+}
+// 等同于这个
+GET twitter/_search
+{
+ "query": {
+   "match": {
+     "user": "朝阳区-老贾"
+   }
+ }
+}
+```
+
+这是因为默认的操作是 or 操作。上面查询的结果是任何文档匹配：“**朝**”，“**阳**”，“**区**”，“**老**”及“**贾**”这5个字中的任何一个将被显示
+
+###### minimum_should_match
+
+我们也可以设置参数 minimum_should_match 来设置至少匹配的 term。比如：
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "match": {
+      "user": {
+        "query": "朝阳区-老贾",
+        "operator": "or", // 这里可以改成and
+        "minimum_should_match": 3
+      }
+    }
+  }
+}
+```
+
+###### ids 匹配id查询
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "ids": {
+      "values": ["1", "2"]
+    }
+  }
+}
+```
+
+###### Highlighting
+
+突出显示（highlighting）使你能够从搜索结果中的一个或多个字段中获取突出显示的片段，以便向用户显示查询匹配的位置。 当你请求突出显示时，响应包含每个搜索命中的附加突出显示元素，其中包括突出显示的字段和突出显示的片段。
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "match": {
+      "address": "北京"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "address": {}
+    }
+  }
+}
+// 我们通过 pre_tags 及 post_tags 来定义我们想要的 tag
+GET twitter/_search
+{
+  "query": {
+    "match": {
+      "address": "北京"
+    }
+  },
+  "highlight": {
+    "pre_tags": ["<my_tag>"],
+    "post_tags": ["</my_tag>"], 
+    "fields": {
+      "address": {}
+    }
+  }
+}
+// 结果
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : 0.5253035,
+        "_source" : {
+          "user" : "双榆树-张三",
+          "message" : "今儿天气不错啊，出去转转去",
+          "uid" : 2,
+          "age" : 20,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市海淀区",
+          "location" : {
+            "lat" : "39.970718",
+            "lon" : "116.325747"
+          }
+        },
+        "highlight" : {
+          "address" : [
+            "中国<my_tag>北</my_tag><my_tag>京</my_tag>市海淀区"
+          ]
+        }
+      }
+     ...
+```
+
+##### 多字段匹配查询 multi_match
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "multi_match": {
+      "query": "朝阳",
+      "fields": [
+        "user",
+        "address^3", // address 含有 “朝阳” 的文档的分数进行3倍的加权
+        "message"
+      ],
+      "type": "best_fields" // 它搜索了3个字段。最终的分数 _score 是按照得分最高的那个字段的分数为准
+    }
+  }
+}
+```
+
+##### 前缀查询 Prefix query
+
+返回在提供的字段中包含特定前缀的文档。
+
+```json
+// 查询 user 字段里以“朝”为开头的所有文档
+GET twitter/_search
+{
+  "query": {
+    "prefix": {
+      "user": {
+        "value": "朝"
+      }
+    }
+  }
+}
+```
+
+
+
 ##### 短语匹配 match_phase
 
 将需要匹配的值当成一个整体单词 ( 不分词 ) 进行检索
@@ -1073,15 +1561,21 @@ GET bank/_search
 
 ##### 复合查询 bool
 
+[Compound queries | Elasticsearch Guide 7.14](https://www.elastic.co/guide/en/elasticsearch/reference/7.14/compound-queries.html)
+
 复合语句可以合并任何其他查询语句，包括复合语句。复合语句之间可以相互嵌套，可以表达复杂的逻辑。
 
-搭配使用 must,must_not,should
+搭配使用 must,must_not,should,filter
 
 must: 必须达到 must 指定的条件。 ( 影响相关性得分 )
 
 must_not: 必须不满足 must_not 的条件。 ( 不影响相关性得分 )
 
-should: 如果满足 should 条件，则可以提高得分。如果不满足，也可以查询出记录。 ( 影响相关性得分 )
+should: 有就更好，没有就算了。如果满足 should 条件，则可以提高得分。如果不满足，也可以查询出记录。 ( 影响相关性得分 )，如果bool查询中只有一个should，那么会影响搜索文档的个数。
+
+filter: 在 filter 子句中，条件必须与文档匹配，类似于 must 子句。 唯一的区别是分数在过滤子句中是不相关的
+
+![image-20240321095720197](media/images/image-20240321095720197.png)
 
 示例：查询出地址包含 mill，且性别为 M，年龄不等于 28 的记录，且优先展示 firstname 包含 Winnie 的记录。
 
@@ -1183,6 +1677,146 @@ GET bank/_search
 }
 ```
 
+##### 加入explain解释语句执行
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "city": "北京"
+          }
+        },
+        {
+          "match": {
+            "age": "30"
+          }
+        }
+      ]
+    }
+  },
+  "explain": true
+}
+```
+
+##### 位置查询 geo
+
+[Geo-bounding box query | Elasticsearch Guide 7.14](https://www.elastic.co/guide/en/elasticsearch/reference/7.14/query-dsl-geo-bounding-box-query.html)
+
+##### 范围查询 range
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "range": {
+      "age": {
+        "gte": 30,
+        "lte": 40
+      }
+    }
+  },
+  "sort": [
+    {
+      "age": {
+        "order": "desc"
+      }
+    },
+    {
+      "_geo_distance": {
+        "location": {
+          "lat": 39.920086,
+          "lon": 116.454182
+        },
+        "order": "asc"
+      }
+    }
+  ]
+}
+```
+
+首先以 age 进行降序排序。如果是 age 是一样的话，那么按照距离来进行排序。
+
+##### sort
+
+[Sort search results | Elasticsearch Guide 7.14](https://www.elastic.co/guide/en/elasticsearch/reference/7.14/sort-search-results.html#sort-search-results)
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "range": {
+      "age": {
+        "gte": 30,
+        "lte": 40
+      }
+    }
+  },
+  "sort": [
+    {
+      "age": {
+        "order": "desc"
+      }
+    },
+    {
+      "DOB": {
+        "order": "desc",
+        "format": "date"
+      }
+    }
+  ]
+}
+// 我们使用 "format": "date" 来显示如下的格式：
+"sort": [
+    "2024-03-21"
+]
+```
+
+我们甚至可以使用 _doc 来进行排序。这中排序是基于 _id 来进行排序的：
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "range": {
+      "age": {
+        "gte": 30,
+        "lte": 40
+      }
+    }
+  },
+  "sort": [
+    "_doc"
+  ]
+}
+// 查询结果是按照id的顺序排序的
+```
+
+当我们使用任何字段进行排序时，Elasticsearch 不会计算分数。 但是，有一种方法可以让 Elasticsearch 计算分数，即使你不再按 _score 排序。 为此，你将使用 track_scores 布尔字段。 下面的清单显示了如何为引擎设置 track_score 以计算此实例中的分数。
+
+```json
+GET twitter/_search
+{
+  "track_scores": true,
+  "query": {
+    "range": {
+      "age": {
+        "gte": 30,
+        "lte": 40
+      }
+    }
+  },
+  "sort": [
+    "_doc"
+  ]
+}
+```
+
+在上面的命令中显示的 track_scores 属性为引擎提供了一个提示来计算文档的相关性分数。 但是，它们不会根据 _score 属性进行排序，因为自定义字段 _doc 用于排序。
+
 ##### filter 过滤
 
 不影响相关性得分，查询出满足 filter 条件的记录。在 bool 中使用。
@@ -1205,9 +1839,27 @@ GET bank/_search
     }
   }
 }
+// 
+GET /_search
+{
+  "query": { 
+    "bool": { 
+      "must": [
+        { "match": { "title":   "Search"        }},
+        { "match": { "content": "Elasticsearch" }}
+      ],
+      "filter": [ 
+        { "term":  { "status": "published" }},
+        { "range": { "publish_date": { "gte": "2015-01-01" }}}
+      ]
+    }
+  }
+}
 ```
 
 ##### term查询
+
+[Term-level queries | Elasticsearch Guide 7.14](https://www.elastic.co/guide/en/elasticsearch/reference/7.14/term-level-queries.html)
 
 匹配某个属性的值。
 
@@ -1218,7 +1870,7 @@ keyword：文本精确匹配 ( 全部匹配 )
 match_phase：文本短语匹配
 
 ```json
-非 text 字段精确匹配
+// 非 text 字段精确匹配
 GET bank/_search
 {
   "query": {
@@ -1226,6 +1878,18 @@ GET bank/_search
       "age": "20"
  }
  }
+}
+// 多个term查询
+GET twitter/_search
+{
+  "query": {
+    "terms": {
+      "user.keyword": [
+        "双榆树-张三",
+        "东城区-老刘"
+      ]
+    }
+  }
 }
 ```
 
@@ -1389,6 +2053,14 @@ ES8.x 版本：不支持 URL 中的 type 参数
 - 正确定义字段是否必须分词为多个 token 或单个 token
 - 定义映射类型，例如地理点、suggester、向量等
 
+###### 动态字段映射
+
+可以通过在索引文档的时候指定dynamic的属性值，来控制字段的表现行为。
+
+[Dynamic field mapping | Elasticsearch Guide 7.14](https://www.elastic.co/guide/en/elasticsearch/reference/7.14/dynamic-field-mapping.html)
+
+![image-20240321091116475](media/images/image-20240321091116475.png)
+
 ###### 创建索引并指定映射
 
 如创建 my-index 索引，有三个字段 age,email,name，指定类型为 interge, keyword, text
@@ -1481,7 +2153,7 @@ GET twitter/_mapping/field/city
 }
 ```
 
-
+"ignore_above" 属性是可选的，它用于指定对于长度超过指定值的字符串，不会被索引为 "keyword" 类型，而是会被索引为 "text" 类型。这样做是为了避免在 "keyword" 类型中存储过长的字符串，导致索引膨胀。
 
 ###### 添加新的字段映射
 
@@ -1516,6 +2188,104 @@ POST _reindex
  }
 }
 ```
+
+###### 删除索引并重新映射案例
+
+```json
+DELETE twitter
+PUT twitter
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  }
+}
+ 
+PUT twitter/_mapping
+{
+  "properties": {
+    "address": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "age": {
+      "type": "long"
+    },
+    "city": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "country": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "location": {
+      "type": "geo_point"
+    },
+    "message": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "province": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "uid": {
+      "type": "long"
+    },
+    "user": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  }
+}
+// 加入数据
+POST _bulk
+{ "index" : { "_index" : "twitter", "_id": 1} }
+{"user":"双榆树-张三","message":"今儿天气不错啊，出去转转去","uid":2,"age":20,"city":"北京","province":"北京","country":"中国","address":"中国北京市海淀区","location":{"lat":"39.970718","lon":"116.325747"}}
+{ "index" : { "_index" : "twitter", "_id": 2 }}
+{"user":"东城区-老刘","message":"出发，下一站云南！","uid":3,"age":30,"city":"北京","province":"北京","country":"中国","address":"中国北京市东城区台基厂三条3号","location":{"lat":"39.904313","lon":"116.412754"}}
+{ "index" : { "_index" : "twitter", "_id": 3} }
+{"user":"东城区-李四","message":"happy birthday!","uid":4,"age":30,"city":"北京","province":"北京","country":"中国","address":"中国北京市东城区","location":{"lat":"39.893801","lon":"116.408986"}}
+{ "index" : { "_index" : "twitter", "_id": 4} }
+{"user":"朝阳区-老贾","message":"123,gogogo","uid":5,"age":35,"city":"北京","province":"北京","country":"中国","address":"中国北京市朝阳区建国门","location":{"lat":"39.718256","lon":"116.367910"}}
+{ "index" : { "_index" : "twitter", "_id": 5} }
+{"user":"朝阳区-老王","message":"Happy BirthDay My Friend!","uid":6,"age":50,"city":"北京","province":"北京","country":"中国","address":"中国北京市朝阳区国贸","location":{"lat":"39.918256","lon":"116.467910"}}
+{ "index" : { "_index" : "twitter", "_id": 6} }
+{"user":"虹桥-老吴","message":"好友来了都今天我生日，好友来了,什么 birthday happy 就成!","uid":7,"age":90,"city":"上海","province":"上海","country":"中国","address":"中国上海市闵行区","location":{"lat":"31.175927","lon":"121.383328"}}
+```
+
+
 
 #### 创建索引，添加定制的分析器
 
