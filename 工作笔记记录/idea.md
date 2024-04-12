@@ -69,3 +69,25 @@ git config --global --unset http.proxy
 git config --global --unset https.proxy
 ```
 
+#### 禁用其他插件
+
+##### IDEA2023.1.3自带插件禁用，减少内存占用
+
+[IDEA2023.1.3自带插件禁用，减少内存占用_idea哪些插件可以关闭-CSDN博客](https://blog.csdn.net/weixin_43165220/article/details/131534552)
+
+##### 安卓开发
+
+![image-20240329091945637](media/images/image-20240329091945637.png)
+
+##### 构建工具
+
+只保留了maven的
+
+![image-20240329092117021](media/images/image-20240329092117021.png)
+
+##### Code Coverage 代码覆盖率
+
+java的代码覆盖率插件
+
+具体的按需求取消或者使用插件。
+

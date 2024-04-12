@@ -860,7 +860,7 @@ POST /bank/account/_bulk
 
 ![image-20221116102537517](media/images/image-20221116102537517.png)
 
-##### 索引统计
+##### 索引统计（通配符查看）
 
 ```json
 GET twitter/_stats
@@ -868,11 +868,107 @@ GET twitter1,twitter2,twitter3/_stats
 GET twitter*/_stats
 ```
 
+#### 初始数据
+
+```json
+DELETE twitter
+PUT twitter
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 1
+  }
+}
+ 
+PUT twitter/_mapping
+{
+  "properties": {
+    "address": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "age": {
+      "type": "long"
+    },
+    "city": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "country": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "location": {
+      "type": "geo_point"
+    },
+    "message": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "province": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "uid": {
+      "type": "long"
+    },
+    "user": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  }
+}
+// 加入数据
+POST _bulk
+{ "index" : { "_index" : "twitter", "_id": 1} }
+{"user":"双榆树-张三","message":"今儿天气不错啊，出去转转去","uid":2,"age":20,"city":"北京","province":"北京","country":"中国","address":"中国北京市海淀区","location":{"lat":"39.970718","lon":"116.325747"}}
+{ "index" : { "_index" : "twitter", "_id": 2 }}
+{"user":"东城区-老刘","message":"出发，下一站云南！","uid":3,"age":30,"city":"北京","province":"北京","country":"中国","address":"中国北京市东城区台基厂三条3号","location":{"lat":"39.904313","lon":"116.412754"}}
+{ "index" : { "_index" : "twitter", "_id": 3} }
+{"user":"东城区-李四","message":"happy birthday!","uid":4,"age":30,"city":"北京","province":"北京","country":"中国","address":"中国北京市东城区","location":{"lat":"39.893801","lon":"116.408986"}}
+{ "index" : { "_index" : "twitter", "_id": 4} }
+{"user":"朝阳区-老贾","message":"123,gogogo","uid":5,"age":35,"city":"北京","province":"北京","country":"中国","address":"中国北京市朝阳区建国门","location":{"lat":"39.718256","lon":"116.367910"}}
+{ "index" : { "_index" : "twitter", "_id": 5} }
+{"user":"朝阳区-老王","message":"Happy BirthDay My Friend!","uid":6,"age":50,"city":"北京","province":"北京","country":"中国","address":"中国北京市朝阳区国贸","location":{"lat":"39.918256","lon":"116.467910"}}
+{ "index" : { "_index" : "twitter", "_id": 6} }
+{"user":"虹桥-老吴","message":"好友来了都今天我生日，好友来了,什么 birthday happy 就成!","uid":7,"age":90,"city":"上海","province":"上海","country":"中国","address":"中国上海市闵行区","location":{"lat":"31.175927","lon":"121.383328"}}
+```
+
 
 
 ### 高级查询用法
 
-#### url后接参数
+##### url后接参数
 
 ```json
 GET bank/_search?q=*&sort=account_number: asc
@@ -896,7 +992,7 @@ hits._score - 相关性得分
 https://www.elastic.co/guide/en/elasticsearch/reference/current/getting-started-search.html
 ```
 
-#### url加请求体，QueryDSL 语句
+##### url加请求体，QueryDSL 语句
 
 ##### 全部匹配 match_all
 
@@ -1481,6 +1577,130 @@ GET twitter/_search
 }
 ```
 
+多加一个叫做 twitter1 的 index。它的内容如下：
+
+```json
+POST _bulk
+{"index":{"_index":"twitter1","_id":1}}
+{"user":"张庆","message":"今儿天气不错啊，出去转转去","uid":2,"age":20,"city":"重庆","province":"重庆","country":"中国","address":"中国重庆地区","location":{"lat":"39.970718","lon":"116.325747"}}
+```
+
+这样在我们的 Elasticsearch 中就有两个索引了。我们可以做如下的 _msearch。
+
+```json
+GET twitter/_msearch
+{"index":"twitter"}
+{"query":{"match_all":{}},"from":0,"size":1}
+{"index":"twitter"}
+{"query":{"bool":{"filter":{"term":{"city.keyword":"北京"}}}}, "size":1}
+{"index":"twitter1"}
+{"query":{"match_all":{}}}
+```
+
+上面我们通过 _msearch 终点来实现在一个 API 请求中做多个查询，对多个 index 进行同时操作。显示结果为:
+
+![image-20240327114840273](media/images/image-20240327114840273.png)
+
+##### Contant score 查询
+
+在上面的一个例子中，我们已经使用过 [constant_score](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-constant-score-query.html) 查询。我们知道 filter 查询是不会对结果进行打分的，在默认的情况下，它返回的分数是 1.0，比如：
+
+```json
+GET twitter/_search?filter_path=**.hits
+{
+  "query": {
+    "bool": {
+      "filter": [
+        {
+          "match": {
+            "city": "北京"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+在上面，我们过滤文档中 city 字段中含有 “北京” 的文档：
+
+```json
+{
+  "hits" : {
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_id" : "1",
+        "_score" : 0.0,
+        "_source" : {
+          "user" : "双榆树-张三",
+          "message" : "今儿天气不错啊，出去转转去",
+          "uid" : 2,
+          "age" : 20,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市海淀区",
+          "location" : {
+            "lat" : "39.970718",
+            "lon" : "116.325747"
+          }
+        }
+      },
+    ...
+}
+```
+
+从上面的分数 _score 中，我们可以看出来，它是 0。在在有些情况下，可能并不是我们想要的。那么我改如何返回非 0 的分数呢？costant_score 查询包装 [filter 查询](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html) 查询并返回每个匹配的文档，其相关性分数等于 boost 参数值。比如：
+
+```json
+GET twitter/_search?filter_path=**.hits
+{
+  "query": {
+    "constant_score": {
+      "filter": {
+        "match": {
+          "city": "北京"
+        }
+      },
+      "boost": 1.2
+    }
+  }
+}
+```
+
+结果
+
+```json
+{
+  "hits" : {
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_id" : "1",
+        "_score" : 1.2,
+        "_source" : {
+          "user" : "双榆树-张三",
+          "message" : "今儿天气不错啊，出去转转去",
+          "uid" : 2,
+          "age" : 20,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市海淀区",
+          "location" : {
+            "lat" : "39.970718",
+            "lon" : "116.325747"
+          }
+        }
+      },
+ 
+   ...
+}
+```
+
+从上面的返回结果中，我们可以看出来，_score 的值为 1.2。boost 的默认值为 1.0。
+
 ##### 前缀查询 Prefix query
 
 返回在提供的字段中包含特定前缀的文档。
@@ -1558,6 +1778,124 @@ GET bank/_search
   }
 }
 ```
+
+可以允许短语之间有一些差别：
+
+```json
+PUT twitter/_doc/5
+{
+  "user": "朝阳区-老王",
+  "message": "Happy Good BirthDay My Friend!",
+  "uid": 6,
+  "age": 50,
+  "city": "北京",
+  "province": "北京",
+  "country": "中国",
+  "address": "中国北京市朝阳区国贸",
+  "location": {
+    "lat": "39.918256",
+    "lon": "116.467910"
+  }
+}
+// search
+GET twitter/_search
+{
+  "query": {
+    "match_phrase": {
+      "message": {
+        "query": "Happy birthday",
+        "slop": 1 // 使用了 slop 为1，表面 Happy 和 birthday 之前是可以允许一个 token 的差别
+      }
+    }
+  },
+  "highlight": {
+    "fields": {
+      "message": {}
+    }
+  }
+}
+```
+
+###### [Match phrase prefix query](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query-phrase-prefix.html)
+
+以与提供的相同顺序返回包含所提供文本的单词的文档。 所提供文本的最后一个词被视为前缀，匹配以该词开头的任何单词。比如：
+
+```json
+GET twitter/_search?filter_path=**.hits
+{
+  "query": {
+    "match_phrase_prefix": {
+      "message": {
+        "query": "happy birthday m"
+      }
+    }
+  }
+}
+```
+
+搜索结果
+
+```json
+{
+  "hits" : {
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_id" : "5",
+        "_score" : 3.6593091,
+        "_source" : {
+          "user" : "朝阳区-老王",
+          "message" : "Happy BirthDay My Friend!",
+          "uid" : 6,
+          "age" : 50,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市朝阳区国贸",
+          "location" : {
+            "lat" : "39.918256",
+            "lon" : "116.467910"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+###### Match boolean prefix query
+
+[match_bool_prefix](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-bool-prefix-query.html) 查询分析其输入并根据这些词构造一个 [bool 查询](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-bool-query.html)。 除了最后一个术语之外的每个术语都用于术语查询。 最后一个词用于前缀查询。 match_bool_prefix 查询，例如：
+
+```json
+GET twitter/_search?filter_path=**.hits
+{
+  "query": {
+    "match_bool_prefix" : {
+      "message" : "happy birthday m"
+    }
+  }
+}
+```
+
+相当于整个查询
+
+```json
+GET twitter/_search?filter_path=**.hits
+{
+  "query": {
+    "bool" : {
+      "should": [
+        { "term": { "message": "happy" }},
+        { "term": { "message": "birthday" }},
+        { "prefix": { "message": "m"}}
+      ]
+    }
+  }
+}
+```
+
+
 
 ##### 复合查询 bool
 
@@ -1701,6 +2039,365 @@ GET twitter/_search
   "explain": true
 }
 ```
+
+##### profile api 调试工具
+
+Profile API 是调试工具。 它添加了有关执行的详细信息搜索请求中的每个组件。 它为用户提供有关搜索的每个步骤的洞察力请求执行并可以帮助确定某些请求为何缓慢。
+
+```json
+GET twitter/_search
+{
+  "profile": "true", 
+  "query": {
+    "match": {
+      "city": "北京"
+    }
+  }
+}
+```
+
+在上面，我们加上了 "profile":"true" 后，除了显示搜索的结果之外，还显示 profile 的信息：
+
+```json
+  "profile" : {
+    "shards" : [
+      {
+        "id" : "[ZXGhn-90SISq1lePV3c1sA][twitter][0]",
+        "searches" : [
+          {
+            "query" : [
+              {
+                "type" : "BooleanQuery",
+                "description" : "city:北 city:京",
+                "time_in_nanos" : 1390064,
+                "breakdown" : {
+                  "set_min_competitive_score_count" : 0,
+                  "match_count" : 5,
+                  "shallow_advance_count" : 0,
+                  "set_min_competitive_score" : 0,
+                  "next_doc" : 31728,
+                  "match" : 3337,
+                  "next_doc_count" : 5,
+                  "score_count" : 5,
+                  "compute_max_score_count" : 0,
+                  "compute_max_score" : 0,
+                  "advance" : 22347,
+                  "advance_count" : 1,
+                  "score" : 16639,
+                  "build_scorer_count" : 2,
+                  "create_weight" : 342219,
+                  "shallow_advance" : 0,
+                  "create_weight_count" : 1,
+                  "build_scorer" : 973775
+                },
+                "children" : [
+                  {
+                    "type" : "TermQuery",
+                    "description" : "city:北",
+                    "time_in_nanos" : 107949,
+                    "breakdown" : {
+                      "set_min_competitive_score_count" : 0,
+                      "match_count" : 0,
+                      "shallow_advance_count" : 3,
+                      "set_min_competitive_score" : 0,
+                      "next_doc" : 0,
+                      "match" : 0,
+                      "next_doc_count" : 0,
+                      "score_count" : 5,
+                      "compute_max_score_count" : 3,
+                      "compute_max_score" : 11465,
+                      "advance" : 3477,
+                      "advance_count" : 6,
+                      "score" : 5793,
+                      "build_scorer_count" : 3,
+                      "create_weight" : 34781,
+                      "shallow_advance" : 18176,
+                      "create_weight_count" : 1,
+                      "build_scorer" : 34236
+                    }
+                  },
+                  {
+                    "type" : "TermQuery",
+                    "description" : "city:京",
+                    "time_in_nanos" : 49929,
+                    "breakdown" : {
+                      "set_min_competitive_score_count" : 0,
+                      "match_count" : 0,
+                      "shallow_advance_count" : 3,
+                      "set_min_competitive_score" : 0,
+                      "next_doc" : 0,
+                      "match" : 0,
+                      "next_doc_count" : 0,
+                      "score_count" : 5,
+                      "compute_max_score_count" : 3,
+                      "compute_max_score" : 5162,
+                      "advance" : 15645,
+                      "advance_count" : 6,
+                      "score" : 3795,
+                      "build_scorer_count" : 3,
+                      "create_weight" : 13562,
+                      "shallow_advance" : 1087,
+                      "create_weight_count" : 1,
+                      "build_scorer" : 10657
+                    }
+                  }
+                ]
+              }
+            ],
+            "rewrite_time" : 17930,
+            "collector" : [
+              {
+                "name" : "CancellableCollector",
+                "reason" : "search_cancelled",
+                "time_in_nanos" : 204082,
+                "children" : [
+                  {
+                    "name" : "SimpleTopScoreDocCollector",
+                    "reason" : "search_top_hits",
+                    "time_in_nanos" : 23347
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "aggregations" : [ ]
+      }
+    ]
+  }
+```
+
+从上面我们可以看出来，这个搜索是搜索了“**北**”及“**京**”，而不是把北京作为一个整体来进行搜索的。我们可以在以后的文档中可以学习使用中文分词器来进行分词搜索。可以把上面的搜索修改为 city.keyword 来看看。
+
+```json
+GET twitter/_search
+{
+  "profile": "true", 
+  "query": {
+    "match": {
+      "city.keyword": "北京"
+    }
+  }
+}
+```
+
+结果
+
+```json
+  "profile" : {
+    "shards" : [
+      {
+        "id" : "[_Yw0r1LGQ7qOd_giWkM8ng][twitter][0]",
+        "searches" : [
+          {
+            "query" : [
+              {
+                "type" : "TermQuery",
+                "description" : "city.keyword:北京",
+                "time_in_nanos" : 43400,
+                "breakdown" : {
+                  "set_min_competitive_score_count" : 0,
+                  "match_count" : 0,
+                  "shallow_advance_count" : 0,
+                  "set_min_competitive_score" : 0,
+                  "next_doc" : 2300,
+                  "match" : 0,
+                  "next_doc_count" : 5,
+                  "score_count" : 5,
+                  "compute_max_score_count" : 0,
+                  "compute_max_score" : 0,
+                  "advance" : 2300,
+                  "advance_count" : 1,
+                  "score" : 3800,
+                  "build_scorer_count" : 2,
+                  "create_weight" : 17100,
+                  "shallow_advance" : 0,
+                  "create_weight_count" : 1,
+                  "build_scorer" : 17900
+                }
+              }
+            ],
+            "rewrite_time" : 1200,
+            "collector" : [
+              {
+                "name" : "SimpleTopScoreDocCollector",
+                "reason" : "search_top_hits",
+                "time_in_nanos" : 8400
+              }
+            ]
+          }
+        ],
+        "aggregations" : [ ]
+      }
+    ]
+  }
+```
+
+
+
+##### name queries
+
+我们可以使用 _name 为一个 filter 或 query 来取一个名字，比如：
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "city": {
+              "query": "北京",
+              "_name": "城市"
+            }
+          }
+        },
+        {
+          "match": {
+            "country": {
+              "query": "中国",
+              "_name": "国家"
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "match": {
+            "_id": {
+              "query": "1",
+              "_name": "ID"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+查询结果
+
+```json
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "1",
+        "_score" : 1.6305401,
+        "_source" : {
+          "user" : "双榆树-张三",
+          "message" : "今儿天气不错啊，出去转转去",
+          "uid" : 2,
+          "age" : 20,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市海淀区",
+          "location" : {
+            "lat" : "39.970718",
+            "lon" : "116.325747"
+          }
+        },
+        "matched_queries" : [
+          "国家",
+          "ID",
+          "城市"
+        ]
+      },
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "2",
+        "_score" : 0.6305401,
+        "_source" : {
+          "user" : "东城区-老刘",
+          "message" : "出发，下一站云南！",
+          "uid" : 3,
+          "age" : 30,
+          "city" : "北京",
+          "province" : "北京",
+          "country" : "中国",
+          "address" : "中国北京市东城区台基厂三条3号",
+          "location" : {
+            "lat" : "39.904313",
+            "lon" : "116.412754"
+          }
+        },
+        "matched_queries" : [
+          "国家",
+          "城市"
+        ]
+      },
+    ...
+  ]
+```
+
+##### 通配符查询
+
+我们可以使用 wildcard 查询一个字符串里含有的字符：
+
+```json
+GET twitter/_search
+{
+  "query": {
+    "wildcard": {
+      "city.keyword": {
+        "value": "*海"
+      }
+    }
+  }
+}
+```
+
+搜索结果
+
+```json
+{
+  "took" : 0,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 1,
+      "relation" : "eq"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : "twitter",
+        "_type" : "_doc",
+        "_id" : "6",
+        "_score" : 1.0,
+        "_source" : {
+          "user" : "虹桥-老吴",
+          "message" : "好友来了都今天我生日，好友来了,什么 birthday happy 就成!",
+          "uid" : 7,
+          "age" : 90,
+          "city" : "上海",
+          "province" : "上海",
+          "country" : "中国",
+          "address" : "中国上海市闵行区",
+          "location" : {
+            "lat" : "31.175927",
+            "lon" : "121.383328"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+我们可以看到查到 city 为 “上海” 的文档。
+
+##### [Disjunction max 查询](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-dis-max-query.html#query-dsl-dis-max-query)
 
 ##### 位置查询 geo
 
@@ -1899,6 +2596,27 @@ GET twitter/_search
 
 Elasticsearch 可以将命中结果和多个聚合结果同时返回。
 
+我们要特别注意的是，并不是所有的字段都可以做聚合的。一般来说，具有 keyword 或者数值类型的字段是可以做聚合的。我们可以通过 [_field_caps](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-field-caps.html) 接口来进行查询：
+
+```json
+GET twitter/_field_caps?fields=country
+// output
+{
+  "indices" : [
+    "twitter"
+  ],
+  "fields" : {
+    "country" : {
+      "keyword" : {
+        "type" : "keyword",
+        "searchable" : true,
+        "aggregatable" : true
+      }
+    }
+  }
+}
+```
+
 语法
 
 ```json
@@ -1911,6 +2629,17 @@ Elasticsearch 可以将命中结果和多个聚合结果同时返回。
         [,"aggregations" : { [<sub_aggregation>]+ }]?
     }
     [,"聚合名称 2>" : { ... }]*
+}
+
+"aggregations" : {
+    "<aggregation_name>" : {
+        "<aggregation_type>" : {
+            <aggregation_body>
+        }
+        [,"meta" : {  [<meta_data_body>] } ]?
+        [,"aggregations" : { [<sub_aggregation>]+ } ]?
+    }
+    [,"<aggregation_name_2>" : { ... } ]*
 }
 ```
 
@@ -1925,8 +2654,8 @@ GET bank/_search
  }
   },
   "aggs": {
-    "ageAggr": {
-      "terms": {
+    "ageAggr": { //名称
+      "terms": { // 类型
         "field": "age",
         "size": 10
        }
@@ -2016,6 +2745,96 @@ GET bank/_search
 从结果可以看到 31 岁的有 61 个。其中性别为 `M` 的 35 个，平均薪资 29565.6，性别为 `F` 的 26 个，平均薪资 26626.6。其他年龄的聚合结果类似。
 
 ![image-20221116115352639](media/images/image-20221116115352639.png)
+
+具体的更加详细的例子：[开始使用 Elasticsearch （3）_es fieldcaps-CSDN博客](https://elasticstack.blog.csdn.net/article/details/99621105)
+
+##### 建议 suggest api
+
+[Elasticsearch：如何在 Elasticsearch中 查询相似的术语 （suggest API）_es语义相似度搜索-CSDN博客](https://elasticstack.blog.csdn.net/article/details/103944805)
+
+
+
+#### SQL 查询
+
+```json
+GET /_sql?
+{
+  "query": """
+    SELECT * FROM twitter 
+    WHERE age = 30
+  """
+}
+```
+
+通过这个查询，我们可以找到所有在年龄等于30的用户。在个搜索中，我们使用了 SQL 语句。利用 SQL 端点我们可以很快地把我们的 SQL 知识转化为 Elasticsearch 的使用场景中来。我们可以通过如下的方法得到它对应的 DSL 语句：
+
+```json
+GET /_sql/translate
+{
+  "query": """
+    SELECT * FROM twitter 
+    WHERE age = 30
+  """
+}
+```
+
+结果：
+
+```json
+{
+  "size" : 1000,
+  "query" : {
+    "term" : {
+      "age" : {
+        "value" : 30,
+        "boost" : 1.0
+      }
+    }
+  },
+  "_source" : {
+    "includes" : [
+      "address",
+      "message",
+      "region",
+      "script.source",
+      "user"
+    ],
+    "excludes" : [ ]
+  },
+  "docvalue_fields" : [
+    {
+      "field" : "age"
+    },
+    {
+      "field" : "city"
+    },
+    {
+      "field" : "country"
+    },
+    {
+      "field" : "location"
+    },
+    {
+      "field" : "province"
+    },
+    {
+      "field" : "script.params.value"
+    },
+    {
+      "field" : "uid"
+    }
+  ],
+  "sort" : [
+    {
+      "_doc" : {
+        "order" : "asc"
+      }
+    }
+  ]
+}
+```
+
+[Elasticsearch SQL介绍及实例 (csdn.net)](https://elasticstack.blog.csdn.net/article/details/105658911) 具体可以看这个。
 
 ##### Mapping 映射
 

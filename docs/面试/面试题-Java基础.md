@@ -979,7 +979,16 @@ Thread.setDaemon()必须在Thread.start()之前调用，否则运行时会抛出
 
 （20-30k）
 
+##### 线程池大小设置多少合理
 
+https://mp.weixin.qq.com/s/d-Ly0dNuX1SV-pxB7oNmwQ
+
+公式：
+
+计算密集型=CPU核心数+1
+IO密集型=CPU核心数*2+1
+
+我们需要验证这个
 
 #### Java应用开发中的注入攻击
 

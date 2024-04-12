@@ -676,5 +676,7 @@ Spring Boot 3.0.1+ spring data jpa 3.0.1由Spring初始化程序创建。
 
 https://www.saoniuhuo.com/question/detail-2419397.html
 
-#### 
+#### spring boot 版本
+
+[SpringBoot系列-全网最全的版本变更史 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/652895555)
 

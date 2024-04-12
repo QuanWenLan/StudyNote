@@ -192,7 +192,9 @@ https://javaguide.cn/books/cs-basics.html#%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E
 
 - 《深入理解分布式系统》
 
-- 《数据密集型应用系统设计》
+- 《数据密集型应用系统设计》《设计数据密集型应用》英文 Designing Data-Intensive Application
+
+  [设计数据密集型应用 (vonng.com)](http://ddia.vonng.com/#/)
 
   这本书主要讲了分布式数据库、数据分区、事务、分布式系统等内容。
 
@@ -221,3 +223,9 @@ https://javaguide.cn/books/cs-basics.html#%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E
 - 《大型网站系统与Java中间件开发实践》-7.9评分
 
 - 《大规模分布式存储系统》-7.8
+
+### 其他
+
+#### 意志自律
+
+- 《自控力》*The Willpower Instinct*

@@ -361,7 +361,7 @@ https://community.jaspersoft.com/wiki/xls-export-parameters-jasperreports-server
 
 ##### 14 Maven无法下载2.1.7.js7版本的itext依赖
 
-[(2条消息) Maven无法下载2.1.7.js7版本的itext依赖_不积跬步，无以至千里-CSDN博客_itext2.1.7 maven](https://lewky.blog.csdn.net/article/details/109322686) 
+[Maven无法下载2.1.7.js7版本的itext依赖_不积跬步，无以至千里-CSDN博客_itext2.1.7 maven](https://lewky.blog.csdn.net/article/details/109322686) 
 
 ![image-20220125154112809](media/images/image-20220125154112809.png)
 
