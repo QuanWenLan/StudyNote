@@ -144,21 +144,21 @@ DNS="192.168.146.2"
 
 [Linux查看及设置DNS服务器 - 腾讯云开发者社区-腾讯云 (tencent.com)](https://cloud.tencent.com/developer/article/1963426) 
 
-![image-20230405132956467](E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20230405132956467.png)
+![image-20230405132956467](media/images/image-20230405132956467.png)
 
 框出来的就代表不是动态ip而是静态ip了。
 
 #### 2 设置虚拟网络编辑器
 
-![image-20230405133101214](E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20230405133101214.png)
+![image-20230405133101214](media/images/image-20230405133101214.png)
 
 设置子网IP和网关IP
 
-<img src="E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20230405133152332.png" alt="image-20230405133152332" style="zoom:67%;" />
+<img src="media/images/image-20230405133152332.png" alt="image-20230405133152332" style="zoom:67%;" />
 
 点NAT进去的设置
 
-<img src="E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20230405133245114.png" alt="image-20230405133245114" style="zoom:67%;" />
+<img src="media/images/image-20230405133245114.png" alt="image-20230405133245114" style="zoom:67%;" />
 
 如果添加了多个虚拟机的话，网关这里需要设置相同。只需要IPADDR不同就行了。
 
@@ -168,13 +168,13 @@ DNS="192.168.146.2"
 
 ##### 1 查看 firewall 服务状态
 
-![image-20220525114417511](E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20220525114417511.png)
+![image-20220525114417511](media/images/image-20220525114417511.png)
 
 ##### 2 查看firewall的状态
 
 firewall-cmd --state 
 
-![image-20220525114448089](E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20220525114448089.png)
+![image-20220525114448089](media/images/image-20220525114448089.png)
 
 ##### 3 开启、重启、关闭、firewalld.service服务
 
@@ -188,11 +188,11 @@ firewall-cmd --state
 
 `firewall-cmd --list-all`
 
-![image-20220525114622113](E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20220525114622113.png)
+![image-20220525114622113](media/images/image-20220525114622113.png)
 
 我这里腾讯云服务器，还要在控制台添加对应的规则才行
 
-![image-20220525114700372](E:\project\IdeaProjects\StudyNote\docs\linux\images\image-20220525114700372.png)
+![image-20220525114700372](media/images/image-20220525114700372.png)
 
 ##### 5 查询、开放、关闭端口 
 
@@ -298,7 +298,7 @@ scp ./hsicms-0.0.1-SNAPSHOT.jar Vin@192.168.2.117:/D:/projects/work/hsicms-uat/b
 
 
 
-#### 问题排查工具命令图
+### 问题排查工具命令图
 
 ![image-20231024172749109](media/images/image-20231024172749109.png)
 
