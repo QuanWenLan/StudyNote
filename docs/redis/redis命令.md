@@ -202,7 +202,11 @@ redis 服务不支持 chkconfig
 [root@localhost ~]#
 ```
 
+#### Redis 在windows下开机自动启动
 
+redis-server --service-install redis.windows.conf --loglevel verbose
+
+如何报错了，就用管理员打开命令提示符，进入Redis安装目录，重新输入一遍这行代码按回车即可。
 
 #### 使用 Another Redis Desktop Manager 连接 redis 
 

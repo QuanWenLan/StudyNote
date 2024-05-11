@@ -91,3 +91,19 @@ java的代码覆盖率插件
 
 具体的按需求取消或者使用插件。
 
+
+
+#### idea mybatis xml 提示 ＜statement＞ or DELIMITER expected , got ‘id’
+
+[idea mybatis xml 提示 ＜statement＞ or DELIMITER expected , got ‘id’_xml statement expected-CSDN博客](https://blog.csdn.net/zhh347713307/article/details/117926583)
+
+![image-20240509161357710](media/images/image-20240509161357710.png)
+
+
+
+![image-20240509161426868](media/images/image-20240509161426868.png)
+
+foreach标签里面报红：
+
+![image-20240509161454586](media/images/image-20240509161454586.png)
+

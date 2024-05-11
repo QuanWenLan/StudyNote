@@ -680,3 +680,82 @@ https://www.saoniuhuo.com/question/detail-2419397.html
 
 [SpringBoot系列-全网最全的版本变更史 - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/652895555)
 
+
+
+#### IDEA2023版本创建Sping项目只能勾选17和21，却无法使用Java8？（已解决）
+
+原文链接：https://blog.csdn.net/qq_44231797/article/details/134630733
+
+方案一：替换创建项目的源
+我们只知道IDEA页面创建Spring项目，其实是访问spring initializr去创建项目。故我们可以通过阿里云国服去间接创建Spring项目。将https://start.spring.io/或者http://start.springboot.io/替换为 https://start.aliyun.com/
+
+方案二：升级JDK版本
+
+采用JDK17或者21版本，创建项目后，springboot的版本要改为3.0以下，在pom.xml中把java改为1.8，如下图。
+
+#### springboot 配置 druid 数据库连接池
+
+[Spring Boot——集成Druid数据库连接池_spring boot durid 连接池-CSDN博客](https://blog.csdn.net/wpc2018/article/details/116948255)
+
+![image-20240430160928909](media/images/image-20240430160928909.png)
+
+剩下的配置：
+
+![image-20240430160859278](media/images/image-20240430160859278.png)
+
+#### spring boot上传下载文件
+
+[【File】使用 SpringBoot 实现文件的上传与下载_spring boot 下载fle文件-CSDN博客](https://blog.csdn.net/sco5282/article/details/121275436)
+
+[【Excel】使用 SpringBoot 实现 Excel 文件的导入与导出_springboot excel-CSDN博客](https://blog.csdn.net/sco5282/article/details/121303881)
+
+
+
+#### springboot+mybatis多数据源配置(亲测)
+
+[springboot+mybatis多数据源配置(亲测)_mybatis 配置指定数据源-CSDN博客](https://blog.csdn.net/yuanshangshenghuo/article/details/119223504)
+
+#### springboot 配置整合 shardingJDBC
+
+[Springboot系列：整合Shardingjdbc实现分表、含项目实践！ - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/689898174) 这个是 5.1.2 版本的，比较新
+
+[SpringBoot+Sharding-JDBC操作分库分表（超超超详细）_springboot~sharding-jdbc实现分库分表-CSDN博客](https://blog.csdn.net/s1078229131/article/details/106785894)
+
+报错信息 
+
+
+
+```java
+Caused by: java.lang.NoClassDefFoundError: org/apache/tomcat/dbcp/dbcp2/BasicDataSource
+	at org.apache.shardingsphere.infra.datasource.pool.metadata.type.dbcp.TomcatDBCPDataSourcePoolMetaData.getType(TomcatDBCPDataSourcePoolMetaData.java:67)
+	at org.apache.shardingsphere.spi.typed.TypedSPIRegistry.lambda$findRegisteredService$0(TypedSPIRegistry.java:44)
+	at java.util.stream.ReferencePipeline$2$1.accept(ReferencePipeline.java:174)
+	at java.util.ArrayList$ArrayListSpliterator.tryAdvance(ArrayList.java:1361)
+	at java.util.stream.ReferencePipeline.forEachWithCancel(ReferencePipeline.java:126)
+	at java.util.stream.AbstractPipeline.copyIntoWithCancel(AbstractPipeline.java:499)
+	at java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:486)
+	at java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:472)
+	at java.util.stream.FindOps$FindOp.evaluateSequential(FindOps.java:152)
+	at java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234)
+	at java.util.stream.ReferencePipeline.findFirst(ReferencePipeline.java:531)
+	at org.apache.shardingsphere.spi.typed.TypedSPIRegistry.findRegisteredService(TypedSPIRegistry.java:44)
+	at org.apache.shardingsphere.infra.datasource.pool.metadata.DataSourcePoolMetaDataFactory.newInstance(DataSourcePoolMetaDataFactory.java:46)
+	at org.apache.shardingsphere.infra.datasource.props.DataSourceProperties.<init>(DataSourceProperties.java:53)
+	at org.apache.shardingsphere.spring.boot.datasource.DataSourceMapSetter.getDataSource(DataSourceMapSetter.java:92)
+	at org.apache.shardingsphere.spring.boot.datasource.DataSourceMapSetter.getDataSourceMap(DataSourceMapSetter.java:65)
+	at org.apache.shardingsphere.spring.boot.ShardingSphereAutoConfiguration.setEnvironment(ShardingSphereAutoConfiguration.java:122)
+	at org.springframework.context.support.ApplicationContextAwareProcessor.invokeAwareInterfaces(ApplicationContextAwareProcessor.java:110)
+	at org.springframework.context.support.ApplicationContextAwareProcessor.postProcessBeforeInitialization(ApplicationContextAwareProcessor.java:102)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyBeanPostProcessorsBeforeInitialization(AbstractAutowireCapableBeanFactory.java:440)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1796)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:620)
+	... 94 more
+Caused by: java.lang.ClassNotFoundException: org.apache.tomcat.dbcp.dbcp2.BasicDataSource
+	at java.net.URLClassLoader.findClass(URLClassLoader.java:387)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:418)
+	at sun.misc.Launcher$AppClassLoader.loadClass(Launcher.java:352)
+	at java.lang.ClassLoader.loadClass(ClassLoader.java:351)
+	... 116 more
+```
+
+issue：[java.lang.NoClassDefFoundError: org/apache/tomcat/dbcp/dbcp2/BasicDataSource · Issue #16116 · apache/shardingsphere (github.com)](https://github.com/apache/shardingsphere/issues/16116)
