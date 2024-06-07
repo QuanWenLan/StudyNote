@@ -759,3 +759,98 @@ Caused by: java.lang.ClassNotFoundException: org.apache.tomcat.dbcp.dbcp2.BasicD
 ```
 
 issue：[java.lang.NoClassDefFoundError: org/apache/tomcat/dbcp/dbcp2/BasicDataSource · Issue #16116 · apache/shardingsphere (github.com)](https://github.com/apache/shardingsphere/issues/16116)
+
+
+
+
+
+#### 配置文件
+
+```yml
+application:
+  apis:
+    selector: com.duoke.tiktok.service.controller
+  name: DuoKe Tiktok Service Application
+  description: Tiktok平台服务
+  version: 1.0
+spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  profiles:
+    active: dev
+    include: ${spring.profiles.active}-kafka,${spring.profiles.active}-sharding,gray-config
+management:
+  health:
+    db:
+      enabled: false
+nature:
+  restApi:
+    enabled: false
+```
+
+针对
+
+```yml
+spring:
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  profiles:
+    active: dev
+    include: ${spring.profiles.active}-kafka,${spring.profiles.active}-sharding,gray-config
+```
+
+1. `application.yml` 或 `application.properties`：主配置文件，首先加载。
+2. `application-dev.yml` 或 `application-dev.properties`：根据 `spring.profiles.active=dev` 加载的配置文件，覆盖主配置文件中的相应配置。
+3. `application-dev-kafka.yml` 或 `application-dev-kafka.properties`：根据 `spring.profiles.include=dev-kafka` 加载的配置文件，进一步覆盖先前加载的配置。
+4. `application-dev-sharding.yml` 或 `application-dev-sharding.properties`：根据 `spring.profiles.include=dev-sharding` 加载的配置文件，进一步覆盖先前加载的配置。
+
+假如src的resource下配置
+
+```xml
+src/main/resources/
+  application.yml
+  application-dev.yml
+  application-dev-kafka.yml
+  application-dev-sharding.yml
+```
+
+在你提供的配置中，Spring Boot 将会加载以下配置文件：
+
+1. `application.yml` 或 `application.properties`
+2. `application-dev.yml` 或 `application-dev.properties`
+3. `application-dev-kafka.yml` 或 `application-dev-kafka.properties`
+4. `application-dev-sharding.yml` 或 `application-dev-sharding.properties`
+
+如果 `application-dev.yml` 配置了nacos的话，也会从nacos加载配置文件
+
+```yml
+nacos:
+  config:
+    server-addr: config-dev.meiyunji.net:8848   # nacos配置中心地址，注意：结尾不能带斜杠/
+    namespace: dk-dev
+    group: dk-tiktok-service   # 指定分组名
+    #配置自动刷新
+    auto-refresh: true
+    # 配置编码
+    encode: UTF-8
+    bootstrap:
+      enable: true
+      log-enable: true
+    type: yaml
+    # 指定了要加载的配置文件的 Data IDs
+    data-ids: application-${spring.profiles.active}-sharding.yml,application-${spring.profiles.active}-kafka.yml,application-gray-config.yml
+    remote-first: true # 设置了优先从远程加载配置。
+    username: dk_ro
+    password: Dk_Ro893*%
+```
+
+#### springboot出现yaml input -1 问题
+
+![image-20240606151441148](media/images/image-20240606151441148.png)
+
+问题原因是配置文件的编码有问题，需要到idea的文件编码出去修改，如果是已经编译过了，需要将编译了的文件删掉，重新编译
+
+![image-20240606151651716](media/images/image-20240606151651716.png)
+

@@ -1,6 +1,30 @@
+#### Maven 构建生命周期
+
+Maven 构建生命周期由一系列构建阶段组成，按顺序执行。以下是主要的几个阶段：
+
+1. **validate**：验证项目是否正确，所有必要的信息是否可用。
+
+2. **compile**：使用编译器（通常是 `javac`）编译项目的主源代码，生成 `.class` 文件。输出目录通常是 `target/classes`。
+
+3. **test**：编译项目的测试源代码，生成测试 `.class` 文件。输出目录通常是 `target/test-classes`。
+
+4. **package**：将编译后的代码打包成分发格式（如 JAR）。
+
+   > 该命令会编译项目代码，运行测试，并将项目打包成一个可分发的格式（如 JAR、WAR 文件等）。如果你的项目配置了打包插件（如 `maven-jar-plugin`、`maven-war-plugin`），`mvn package` 就会创建一个 JAR 或 WAR 文件。
+
+5. **verify**：运行任何检查，验证包是否有效且符合质量标准。
+
+6. **install**：将包安装到本地 Maven 仓库中，以便其他项目可以使用。
+
+   > 该命令执行到 `package` 阶段之后，还会将打包后的项目安装到本地 Maven 仓库中，以供其他本地项目依赖。具体来说，`mvn install` 会将生成的 JAR 或 WAR 文件复制到你的本地 Maven 仓库（通常位于 `~/.m2/repository`），这样其他项目就可以在 `pom.xml` 中声明对它的依赖。
+
+7. **deploy**：将最终的包复制到远程 Maven 仓库，以便共享给其他开发者或项目。通常在持续集成/持续部署（CI/CD）过程中使用。
+
+
+
 #### 1 idea 使用maven打jar包 
 
-##### 一、打无依赖的jar包
+##### 一、打无依赖的jar包 maven-jar-plugin
 
 1. pom.xml 文件中加入配置
 
@@ -52,11 +76,9 @@
 
 ![image-20220425105212336](media/images/image-20220425105212336.png)
 
-##### 二、打包含依赖的jar包
+##### 二、打包含依赖的jar包 maven-assembly-plugin
 
-1. pom.xml 文件中添加配置
-
-使用的是 `maven-assembly-plugin` 插件。
+pom.xml 文件中添加配置。使用的是 `maven-assembly-plugin` 插件。
 
 ```xml
 
@@ -199,9 +221,7 @@
 
 ![image-20220425165335408](media/images/image-20220425165335408.png)
 
-另外的配置，解压jar包，并且不包含配置文件啥的。
-
-maven 配置
+另外的配置，解压jar包，并且不包含配置文件啥的。maven 配置
 
 ```xml
 <build>
@@ -346,7 +366,7 @@ package.xml 配置
 
 ```
 
-
+打包效果
 
 ![image-20220506092934234](media/images/image-20220506092934234.png)
 
@@ -426,11 +446,13 @@ package.xml 配置
 
 ```
 
+#### 2 maven 的一些插件
 
+[Maven 打包插件 maven-jar-plugin-CSDN博客](https://blog.csdn.net/Ares5kong/article/details/128777500)
 
-##### 另外的方法：使用 maven-shade-plugin 插件 
+#####  maven-shade-plugin 插件
 
-[maven-shade-plugin介绍及使用](https://blog.csdn.net/yangguosb/article/details/80619481) 
+[maven-shade-plugin介绍及使用](https://blog.csdn.net/yangguosb/article/details/80619481)
 
 maven 中已经有了一些插件；
 
@@ -439,7 +461,6 @@ maven 中已经有了一些插件；
 下面的配置是这个博客的 [链接](https://blog.csdn.net/u012369535/article/details/90546987) ，因为我也需要打包含依赖的jar包出来。
 
 ```xml
-
 <build>
     <plugins>
       <plugin>
@@ -525,11 +546,75 @@ maven 中已经有了一些插件；
 
 ![image-20220425110202994](media/images/image-20220425110202994.png)
 
-#### 2 maven 的一些插件
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-release-plugin</artifactId>
+            <version>2.5.3</version>
+            <configuration>
+                <autoVersionSubmodules>true</autoVersionSubmodules>
+                <tagNameFormat>@{project.version}</tagNameFormat>
+                <arguments>-DskipTests</arguments>
+            </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>${maven.compiler.version}</version>
+            <configuration>
+                <source>${jdk.version}</source>
+                <target>${jdk.version}</target>
+            </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>${maven.source.version}</version>
+            <configuration>
+                <excludes>
+                    <exclude>**/*.properties</exclude>
+                </excludes>
+            </configuration>
+        </plugin>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>${maven.source.version}</version>
+            <executions>
+                <execution>
+                    <id>attach-sources</id>
+                    <goals>
+                        <goal>jar</goal>
+                    </goals>
+                    <configuration>
+                        <excludes>
+                            <exclude>**/*.properties</exclude>
+                        </excludes>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+</build>
+```
 
-##### maven-shade-plugin 插件 
+##### maven-release-plugin 插件
 
-[maven-shade-plugin介绍及使用](https://blog.csdn.net/yangguosb/article/details/80619481)  
+
+
+##### maven-compiler-plugin 插件
+
+
+
+##### maven-source-plugin 插件
+
+
+
+##### maven-jar-plugin 插件
+
+
 
 #### 3 maven 打包 jar，scope 的范围 
 
@@ -799,3 +884,45 @@ maven 中已经有了一些插件；
 </dependency>
 ```
 
+#### 8 spring-boot-maven-plugin 插件使用，可以打依赖的jar包
+
+[spring-boot-maven-plugin插件的作用](https://www.cnblogs.com/acm-bingzi/p/mavenSpringBootPlugin.html)
+
+```xml
+<build>
+    <!-- 设置构建的 jar 包名 -->
+    <finalName>${project.artifactId}</finalName>
+    <plugins>
+        <!-- 打包 -->
+        <plugin>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-maven-plugin</artifactId>
+            <configuration>
+                <fork>true</fork>
+            </configuration>
+            <executions>
+                <execution>
+                    <goals>
+                        <goal>repackage</goal> <!-- 将引入的 jar 打入其中 -->
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+    </plugins>
+</build>
+```
+
+#### 9 distributionManagement 是啥？
+
+```xml
+<distributionManagement>
+    <repository>
+        <id>dianxiaomi-releases</id>
+        <url>http://maven.dev.dianxiaomi.com/content/repositories/releases</url>
+    </repository>
+    <snapshotRepository>
+        <id>dianxiaomi-snapshots</id>
+        <url>http://maven.dev.dianxiaomi.com/content/repositories/snapshots</url>
+    </snapshotRepository>
+</distributionManagement>
+```

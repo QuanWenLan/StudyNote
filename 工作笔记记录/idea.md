@@ -107,3 +107,10 @@ foreach标签里面报红：
 
 ![image-20240509161454586](media/images/image-20240509161454586.png)
 
+#### 单元测试插件
+
+JCode5
+
+[springboot idea自动生成单元测试用例最佳方案（自己手写插件）_自动生成测试用例-CSDN博客](https://blog.csdn.net/HD243608836/article/details/130162914)
+
+testme
