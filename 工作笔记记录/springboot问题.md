@@ -854,3 +854,4 @@ nacos:
 
 ![image-20240606151651716](media/images/image-20240606151651716.png)
 
+#### springboot 配置redis作为cache
