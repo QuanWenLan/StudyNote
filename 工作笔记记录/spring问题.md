@@ -153,3 +153,58 @@ java.net.URLClassLoader@8b87145
 ![image-20220413160055324](media/images/image-20220413160055324.png)
 
 最后因为当前默认的父工程的不知名原因，导致一直识别不到，因此，使用了相同的配置创建了一个新的module来运行，运行正常。
+
+
+
+#### 使用spring的BeanFactoryPostProcessor实现对bean的属性做修改
+
+在下面这个例子中就可以对bean的destroyMethodName做修改
+
+```
+@Slf4j
+@Component
+public class PulsarAndKafkaPostProcessor implements BeanFactoryPostProcessor {
+    @Override
+    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+        String[] beanNames = beanFactory.getBeanNamesForType(PulsarClient.class);
+        for (String beanName : beanNames) {
+            BeanDefinition beanDefinition = beanFactory.getBeanDefinition(beanName);
+            // 将 destroyMethodName 设置为空字符串
+            beanDefinition.setDestroyMethodName("");
+            log.info("Set destroyMethodName for PulsarClient: {}", beanName);
+        }
+    }
+}
+```
+
+原理：
+
+源码解释
+
+```java
+* Factory hook that allows for custom modification of an application context's
+ * bean definitions, adapting the bean property values of the context's underlying
+ * bean factory.
+ *
+ * <p>Useful for custom config files targeted at system administrators that
+ * override bean properties configured in the application context. See
+ * {@link PropertyResourceConfigurer} and its concrete implementations for
+ * out-of-the-box solutions that address such configuration needs.
+ *
+ * <p>A {@code BeanFactoryPostProcessor} may interact with and modify bean
+ * definitions, but never bean instances. Doing so may cause premature bean
+ * instantiation, violating the container and causing unintended side-effects.
+ * If bean instance interaction is required, consider implementing
+ * {@link BeanPostProcessor} instead.
+ * <h3>Registration</h3>
+ * <p>An {@code ApplicationContext} auto-detects {@code BeanFactoryPostProcessor}
+ * beans in its bean definitions and applies them before any other beans get created.
+ * A {@code BeanFactoryPostProcessor} may also be registered programmatically
+ * with a {@code ConfigurableApplicationContext}.
+    
+工厂挂钩，允许自定义修改应用程序上下文的bean定义，调整上下文的底层bean工厂的bean属性值。
+对于针对系统管理员的自定义配置文件非常有用，这些配置文件覆盖在应用程序上下文中配置的bean属性。有关解决此类配置需求的开箱即用解决方案，请参阅propertyresourcecconfigururer及其具体实现。BeanFactoryPostProcessor可以与bean定义交互和修改，但不能与bean实例交互。这样做可能会导致过早的bean实例化，违反容器并导致意想不到的副作用。如果需要bean实例交互，请考虑实现BeanPostProcessor。
+ApplicationContext在其bean定义中自动检测BeanFactoryPostProcessor bean，并在创建任何其他bean之前应用它们。BeanFactoryPostProcessor也可以通过编程方式注册到ConfigurableApplicationContext中。
+```
+
+https://blog.csdn.net/qq_42154259/article/details/108305938
